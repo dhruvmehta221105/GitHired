@@ -51,7 +51,7 @@ export default function Footer() {
               <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">IX</span>
               </div>
-              <span className="text-[18px] font-bold text-text tracking-[-0.5px]">InterviewX</span>
+              <span className="text-[18px] font-bold text-text tracking-[-0.5px]">GitHired</span>
             </Link>
             <p className="text-[13px] text-text-secondary leading-[1.7] mb-5 max-w-[260px]">
               The all-in-one interview preparation platform for ambitious professionals.
@@ -94,7 +94,7 @@ export default function Footer() {
 
         <div className="flex flex-col sm:flex-row items-center justify-between pt-8 border-t border-border gap-4">
           <span className="text-[12px] text-text-secondary">
-            © {new Date().getFullYear()} InterviewX. All rights reserved.
+            © {new Date().getFullYear()} GitHired. All rights reserved.
           </span>
           <div className="flex items-center gap-5">
             {['X', 'Li', 'Gh', 'Yt'].map((icon) => (

@@ -21,7 +21,7 @@ function DashboardMockup() {
             <div className="w-3 h-3 rounded-full bg-yellow-400" />
             <div className="w-3 h-3 rounded-full bg-green-400" />
           </div>
-          <span className="text-[11px] text-text-secondary font-medium">InterviewX Dashboard</span>
+          <span className="text-[11px] text-text-secondary font-medium">GitHired Dashboard</span>
         </div>
 
         <div className="grid grid-cols-3 gap-3">

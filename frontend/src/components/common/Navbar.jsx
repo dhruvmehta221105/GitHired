@@ -53,7 +53,7 @@ export default function Navbar() {
             <span className="text-white font-bold text-sm">IX</span>
           </div>
           <span className="text-[18px] font-bold text-text tracking-[-0.5px]">
-            InterviewX
+            GitHired
           </span>
         </Link>
 

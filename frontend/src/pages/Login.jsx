@@ -57,7 +57,7 @@ export default function Login() {
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">IX</span>
             </div>
-            <span className="text-[18px] font-bold text-white tracking-[-0.5px]">InterviewX</span>
+            <span className="text-[18px] font-bold text-white tracking-[-0.5px]">GitHired</span>
           </div>
           <h2 className="text-[32px] font-extrabold text-white tracking-[-1px] leading-[1.15] mb-4">
             Welcome back to your interview prep hub.
@@ -68,7 +68,7 @@ export default function Login() {
           </p>
           <div className="mt-12 space-y-4">
             {[
-              { label: '50,000+ professionals trust InterviewX', icon: '✓' },
+              { label: '50,000+ professionals trust GitHired', icon: '✓' },
               { label: 'AI-powered feedback in seconds', icon: '✓' },
               { label: '50+ company interview libraries', icon: '✓' },
             ].map((item) => (
@@ -94,7 +94,7 @@ export default function Login() {
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">IX</span>
             </div>
-            <span className="text-[18px] font-bold text-text tracking-[-0.5px]">InterviewX</span>
+            <span className="text-[18px] font-bold text-text tracking-[-0.5px]">GitHired</span>
           </div>
 
           <h1 className="text-[28px] font-extrabold text-text tracking-[-0.8px] mb-2">Sign in</h1>

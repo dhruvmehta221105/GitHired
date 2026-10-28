@@ -1,6 +1,6 @@
-InterviewX – Real-Time Interview Platform
+GitHired – Real-Time Interview Platform
 
-InterviewX is a full-stack web application designed to help users practice interviews with AI and receive structured feedback from interviewers.
+GitHired is a full-stack web application designed to help users practice interviews with AI and receive structured feedback from interviewers.
 
 This platform allows:
 
