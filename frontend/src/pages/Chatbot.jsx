@@ -6,7 +6,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      text: " Hi! I'm your AI Interview Bot from InterviewX.\n\nI can help you:\n• Practice technical & HR interview questions\n• Give feedback on your answers\n• Improve your communication & confidence\n\nWhat role are you preparing for today just let me know?",
+      text: " Hi! I'm your AI Interview Bot from GitHired.\n\nI can help you:\n• Practice technical & HR interview questions\n• Give feedback on your answers\n• Improve your communication & confidence\n\nWhat role are you preparing for today just let me know?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -86,7 +86,7 @@ export default function Chatbot() {
           <div>
             <div style={s.headerTitle}>AI Interview Coach</div>
             <div style={s.headerSub}>
-              <span style={s.dot} /> Online · Powered by InterviewX
+              <span style={s.dot} /> Online · Powered by GitHired
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function Chatbot() {
             {loading ? "···" : "↑"}
           </button>
         </div>
-        <p style={s.hint}>InterviewX AI Coach</p>
+        <p style={s.hint}>GitHired AI Coach</p>
       </div>
     </div>
   );

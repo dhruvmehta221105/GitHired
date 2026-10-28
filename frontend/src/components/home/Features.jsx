@@ -68,7 +68,7 @@ export default function Features() {
           </h2>
           <p className="text-[17px] text-text-secondary max-w-[520px] mx-auto leading-[1.7]">
             From AI-powered practice sessions to expert resume reviews,
-            InterviewX covers every step of your preparation.
+            GitHired covers every step of your preparation.
           </p>
         </motion.div>
 

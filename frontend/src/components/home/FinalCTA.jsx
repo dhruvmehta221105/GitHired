@@ -18,7 +18,7 @@ export default function FinalCTA() {
           </h2>
           <p className="text-[17px] text-white/60 max-w-[460px] mx-auto leading-[1.7] mb-8">
             Join 50,000+ professionals who are landing offers at
-            their dream companies with InterviewX.
+            their dream companies with GitHired.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link

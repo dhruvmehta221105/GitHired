@@ -7,7 +7,7 @@ const testimonials = [
     role: 'SDE at Google',
     initials: 'PS',
     rating: 5,
-    text: 'InterviewX completely transformed my interview preparation. The AI mock interviews felt incredibly realistic, and the feedback helped me identify blind spots I never knew I had. Landed my dream role at Google within 3 months.',
+    text: 'GitHired completely transformed my interview preparation. The AI mock interviews felt incredibly realistic, and the feedback helped me identify blind spots I never knew I had. Landed my dream role at Google within 3 months.',
   },
   {
     name: 'Rahul Verma',
@@ -28,7 +28,7 @@ const testimonials = [
     role: 'Designer at Adobe',
     initials: 'VP',
     rating: 5,
-    text: 'As a designer, I needed help with behavioral interviews. InterviewX\'s HR expert sessions were incredible — structured, realistic, and the detailed scorecards helped me improve systematically.',
+    text: 'As a designer, I needed help with behavioral interviews. GitHired\'s HR expert sessions were incredible — structured, realistic, and the detailed scorecards helped me improve systematically.',
   },
 ];
 
@@ -50,7 +50,7 @@ export default function Testimonials() {
             Loved by professionals worldwide.
           </h2>
           <p className="text-[17px] text-text-secondary max-w-[480px] mx-auto leading-[1.7]">
-            See how InterviewX has helped thousands of candidates
+            See how GitHired has helped thousands of candidates
             land roles at top companies.
           </p>
         </motion.div>
