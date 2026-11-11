@@ -2,6 +2,8 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import API from "../api";
 import { stopAllMediaTracks } from "../utils/interviewUtils";
+import { useLiveTranscription } from "../hooks/useLiveTranscription";
+import LiveTranscript from "../components/interview/LiveTranscript";
 
 /* ─── CSS injected once ─────────────────────────────────── */
 const GLOBAL_CSS = `
@@ -51,12 +53,16 @@ function InterviewRoom() {
   const videoRef           = useRef(null);
   const [currentQuestion,  setCurrentQuestion]  = useState(null);
   const [isRecording,      setIsRecording]      = useState(false);
-  const recordedChunksRef  = useRef([]);
-  const mediaRecorderRef   = useRef(null);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
   const [timeElapsed,      setTimeElapsed]      = useState(0);
   const timerIntervalRef   = useRef(null);
   const initializeRef      = useRef(false);
+  const liveQuestionRef    = useRef(null);
+  const liveTranscription = useLiveTranscription({
+    interviewId,
+    mediaStream: videoStream
+  });
+  const { start: startLiveTranscription } = liveTranscription;
 
   /* ── Cleanup on unmount (master cleanup) ── */
   useEffect(() => {
@@ -69,19 +75,6 @@ function InterviewRoom() {
         timerIntervalRef.current = null;
         console.log("[Cleanup] ✅ Timer stopped");
       }
-      
-      // Stop recorder
-      if (mediaRecorderRef.current) {
-        try {
-          if (mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-          }
-        } catch (e) {
-          console.warn("[Cleanup] Error stopping recorder:", e);
-        }
-        mediaRecorderRef.current = null;
-      }
-      console.log("[Cleanup] ✅ Recorder cleaned up");
       
       // Stop all media tracks
       if (videoStream) {
@@ -101,8 +94,6 @@ function InterviewRoom() {
         }
       }
       
-      // Clear refs
-      recordedChunksRef.current = [];
       console.log("[Cleanup] ✅ All cleanup complete");
     };
   }, []);
@@ -181,93 +172,6 @@ function InterviewRoom() {
         console.log("[Init] Setting video stream to ref...");
         setVideoStream(stream);
 
-        // ✅ CREATE AUDIO-ONLY STREAM FOR RECORDING
-        console.log("[Init] Creating audio-only stream for recording...");
-        const audioStream = new MediaStream(stream.getAudioTracks());
-        
-        // ✅ INITIALIZE MEDIA RECORDER WITH PROPER MIME TYPES
-        console.log("[Init] Initializing MediaRecorder...");
-        
-        const mimeTypes = [
-          "audio/webm",
-          "audio/webm;codecs=opus",
-          "audio/mp4",
-          "audio/wav",
-          "audio/ogg",
-          "" // Browser default
-        ];
-
-        let recorder = null;
-        let selectedMime = "";
-
-        for (const mime of mimeTypes) {
-          try {
-            // Skip if MIME type is specified but not supported
-            if (mime && !MediaRecorder.isTypeSupported(mime)) {
-              console.log(`[Init] MIME type not supported: ${mime}`);
-              continue;
-            }
-
-            // Create recorder with this MIME type
-            const options = mime ? { mimeType: mime } : {};
-            recorder = new MediaRecorder(audioStream, options);
-            selectedMime = mime || "default";
-            console.log(`[Init] ✅ Using MIME type: ${selectedMime}`);
-            break;
-          } catch (err) {
-            console.warn(`[Init] Failed to create recorder with MIME ${mime}:`, err.message);
-            continue;
-          }
-        }
-
-        if (!recorder) {
-          throw new Error("Failed to create MediaRecorder with any supported MIME type");
-        }
-
-        // ✅ SET UP EVENT HANDLERS
-        recorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            recordedChunksRef.current.push(event.data);
-            console.log(`[Recorder] Data collected: ${event.data.size} bytes`);
-          }
-        };
-
-        recorder.onstart = () => {
-          console.log("[Recorder] ✅ Recording started");
-          setIsRecording(true);
-        };
-
-        recorder.onstop = () => {
-          console.log(`[Recorder] ✅ Recording stopped. Total chunks: ${recordedChunksRef.current.length}`);
-          setIsRecording(false);
-        };
-
-        recorder.onerror = (event) => {
-          console.error("[Recorder] ❌ Error:", event.error);
-          setError(`Recording error: ${event.error}`);
-        };
-
-        mediaRecorderRef.current = recorder;
-
-        // ✅ START RECORDING
-        console.log("[Init] Starting recording...");
-        try {
-          // Ensure recorder is in correct state before starting
-          if (recorder.state === "recording") {
-            console.warn("[Init] Recorder already in recording state, stopping first...");
-            recorder.stop();
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-
-          recorder.start();
-          // Manually set recording state since onstart might not fire immediately
-          setIsRecording(true);
-          console.log("[Init] ✅ Recording started successfully");
-        } catch (err) {
-          console.error("[Init] ❌ Failed to start recording:", err);
-          throw new Error(`Failed to start recording: ${err.message}`);
-        }
-
         // ✅ FETCH FIRST QUESTION
         const questionRes = await API.get(`/interviews/${interviewId}/question`);
         console.log("[Init] Question fetched:", questionRes.data);
@@ -316,18 +220,6 @@ function InterviewRoom() {
         timerIntervalRef.current = null;
       }
       
-      // Stop recorder properly
-      if (mediaRecorderRef.current) {
-        try {
-          if (mediaRecorderRef.current.state !== "inactive") {
-            mediaRecorderRef.current.stop();
-          }
-        } catch (e) {
-          console.warn("[Cleanup] Error stopping recorder:", e);
-        }
-        mediaRecorderRef.current = null;
-      }
-      
       // Stop media tracks
       if (videoStream) {
         console.log("[Cleanup] Stopping media tracks...");
@@ -339,7 +231,6 @@ function InterviewRoom() {
         videoRef.current.srcObject = null;
       }
       
-      recordedChunksRef.current = [];
       console.log("[Cleanup] ✅ Cleanup complete");
     };
   }, [interviewId]);
@@ -381,6 +272,26 @@ function InterviewRoom() {
       }
     }
   }, [videoStream]);
+
+  /* ── Start one live transcription session per question ── */
+  useEffect(() => {
+    if (loading || !videoStream || !currentQuestion || isSubmitting) return;
+    if (liveQuestionRef.current === currentQuestion.questionId) return;
+
+    liveQuestionRef.current = currentQuestion.questionId;
+    startLiveTranscription()
+      .then(() => setIsRecording(true))
+      .catch((err) => {
+        liveQuestionRef.current = null;
+        setError(err.message || "Unable to start live transcription.");
+      });
+  }, [
+    currentQuestion,
+    isSubmitting,
+    startLiveTranscription,
+    loading,
+    videoStream
+  ]);
 
   /* ── Handle page unload/leave ── */
   useEffect(() => {
@@ -450,101 +361,46 @@ function InterviewRoom() {
     }
   };
 
-  /* ── Transcription (unchanged) ── */
-  const transcribeAudio = async (audioBlob) => {
-    try {
-      if (!audioBlob || audioBlob.size === 0) throw new Error("Audio blob is empty");
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
-      const response = await API.post("/whisper/transcribe", formData);
-      const data = response.data;
-      return {
-        text: data.text || "Unable to transcribe.",
-        audio: data.audio
-      };
-    } catch (err) {
-      console.error("Whisper error:", err);
-      return { text: "Unable to transcribe." };
-    }
-  };
-
-  /* ── Submit (unchanged) ── */
+  /* ── Submit the finalized live transcript ── */
   const submitAnswer = async () => {
+    if (isSubmitting) return;
+
     try {
-      const recorder = mediaRecorderRef.current;
-      if (!recorder) { 
+      if (!currentQuestion) {
         setError("Recording not initialized"); 
         return; 
       }
       
       setIsSubmitting(true);
-      console.log("[Submit] Stopping recorder and collecting data...");
+      setError("");
+      console.log("[Submit] Finalizing live transcription...");
 
-      // Stop recording and wait for onstop event
-      if (recorder.state === "recording") {
-        await new Promise((resolve) => { 
-          recorder.onstop = resolve; 
-          recorder.stop(); 
-        });
-      }
+      await liveTranscription.stop();
 
-      // Give data time to be processed
-      await new Promise(resolve => setTimeout(resolve, 150));
-
-      console.log(`[Submit] Recorded chunks: ${recordedChunksRef.current.length}`);
-      console.log(`[Submit] Total data size: ${recordedChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0)} bytes`);
-
-      if (recordedChunksRef.current.length === 0) { 
-        console.warn("[Submit] No audio data recorded!");
-        setError("No audio recorded. Please speak into the microphone and try again.");
+      const transcript = liveTranscription.transcript.trim();
+      if (!transcript) {
+        console.warn("[Submit] No live transcript was recognized.");
+        setError("No speech was transcribed. Please speak into the microphone and try again.");
         setIsSubmitting(false);
-        
-        // Restart recording
+        liveQuestionRef.current = null;
         try {
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state === "inactive") {
-            mediaRecorderRef.current.start();
-            setIsRecording(true);
-            console.log("[Submit] Recording restarted");
-          }
+          await liveTranscription.start();
+          setIsRecording(true);
         } catch (e) {
-          console.error("[Submit] Failed to restart recording:", e);
+          console.error("[Submit] Failed to restart live transcription:", e);
+          setError(`Unable to restart transcription: ${e.message}`);
         }
         return; 
-      }
-
-      // Create audio blob
-      const audioBlob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
-      console.log(`[Submit] Audio blob created: ${audioBlob.size} bytes`);
-      
-      if (audioBlob.size === 0) {
-        throw new Error("Audio blob is empty - no data recorded");
-      }
-
-      // Transcribe audio
-      let transcript = "";
-      let audio;
-      try { 
-        console.log("[Submit] Sending to transcription service...");
-        const transcription = await transcribeAudio(audioBlob);
-        transcript = transcription.text;
-        audio = transcription.audio;
-        console.log("[Submit] Transcription complete");
-      }
-      catch (err) { 
-        console.error("[Submit] Transcription error:", err);
-        transcript = "Unable to transcribe."; 
       }
 
       // Submit answer
       console.log("[Submit] Submitting answer to API...");
       await API.post(`/interviews/${interviewId}/answer`, {
         questionId: currentQuestion.questionId,
-        transcript,
-        audio
+        transcript
       });
 
-      // Clear chunks and fetch next question
-      recordedChunksRef.current = [];
+      // Fetch next question
       console.log("[Submit] Fetching next question from API...");
       let next;
       try {
@@ -561,108 +417,12 @@ function InterviewRoom() {
 
       if (next.data.isLastQuestion) {
         console.log("[Submit] Last question reached, ending interview");
-        endInterview();
+        await endInterview();
       } else {
-        console.log("[Submit] Setting next question and restarting recording");
+        console.log("[Submit] Setting next question and restarting transcription");
         setCurrentQuestion(next.data);
-        console.log("[Submit] Question updated to:", next.data);
-        
-        let recorderRestartSuccess = true;
-        // Restart recording for next question
-        if (videoStream && mediaRecorderRef.current) {
-          try {
-            console.log("[Submit] Restarting recording for next question...");
-            
-            // Wait a moment for old recorder to fully stop
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            // Create new recorder for next question
-            const audioTracks = videoStream.getAudioTracks();
-            if (audioTracks.length === 0) {
-              throw new Error("No audio tracks available for new recording");
-            }
-            
-            const audioStream = new MediaStream(audioTracks);
-            
-            // Find supported MIME type
-            const mimeTypes = [
-              "audio/webm",
-              "audio/webm;codecs=opus",
-              "audio/mp4",
-              "audio/wav",
-              "audio/ogg",
-              ""
-            ];
-
-            let newRecorder = null;
-            for (const mime of mimeTypes) {
-              try {
-                if (mime && !MediaRecorder.isTypeSupported(mime)) {
-                  console.log(`[Submit] MIME not supported: ${mime}`);
-                  continue;
-                }
-                newRecorder = new MediaRecorder(audioStream, mime ? { mimeType: mime } : {});
-                console.log(`[Submit] ✅ New recorder created with MIME: ${mime || "default"}`);
-                break;
-              } catch (e) {
-                console.warn(`[Submit] Failed with MIME ${mime}:`, e.message);
-                continue;
-              }
-            }
-
-            if (!newRecorder) {
-              throw new Error("Could not create MediaRecorder with any supported MIME type");
-            }
-
-            // Set up event handlers for new recorder
-            newRecorder.ondataavailable = (e) => {
-              if (e.data && e.data.size > 0) {
-                console.log(`[NewRecorder] Data collected: ${e.data.size} bytes`);
-                recordedChunksRef.current.push(e.data);
-              }
-            };
-            
-            newRecorder.onstart = () => {
-              console.log("[NewRecorder] ✅ Recording started");
-              setIsRecording(true);
-            };
-            
-            newRecorder.onstop = () => {
-              console.log(`[NewRecorder] ✅ Recording stopped. Total chunks: ${recordedChunksRef.current.length}`);
-              setIsRecording(false);
-            };
-            
-            newRecorder.onerror = (e) => {
-              console.error("[NewRecorder] ❌ Error:", e.error);
-              setError(`Recording error: ${e.error}`);
-            };
-              
-            mediaRecorderRef.current = newRecorder;
-            
-            // Start the new recorder
-            try {
-              newRecorder.start();
-              // Manually set recording state since onstart might not fire immediately
-              setIsRecording(true);
-              console.log("[Submit] ✅ New recording started successfully");
-            } catch (err) {
-              console.error("[Submit] Failed to start new recorder:", err);
-              throw err;
-            }
-          } catch (err) {
-            console.error("[Submit] Failed to restart recording:", err);
-            setError(`Failed to restart recording: ${err.message}`);
-            recorderRestartSuccess = false;
-          }
-        } else {
-          console.warn("[Submit] ⚠️ Cannot restart recording - missing stream or recorder ref");
-          recorderRestartSuccess = false;
-        }
-        
-        // Only clear error if recorder restarted successfully
-        if (recorderRestartSuccess) {
-          setError("");
-        }
+        liveQuestionRef.current = null;
+        setIsRecording(false);
       }
       
       console.log("[Submit] ✅ Answer submitted successfully");
@@ -680,20 +440,17 @@ function InterviewRoom() {
     if (isSubmitting) return;
 
     try {
+      await liveTranscription.stop();
+      liveQuestionRef.current = null;
       await API.post(`/interviews/${interviewId}/pause`);
 
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
-      if (mediaRecorderRef.current?.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-      }
       if (videoStream) stopAllMediaTracks(videoStream);
       setVideoStream(null);
       setIsRecording(false);
-      mediaRecorderRef.current = null;
-      recordedChunksRef.current = [];
       navigate("/interviews");
     } catch (err) {
       setError(err.response?.data?.error || "Failed to pause interview");
@@ -703,6 +460,8 @@ function InterviewRoom() {
   const endInterview = async () => {
     try {
       console.log("[EndInterview] Starting interview end sequence...");
+      await liveTranscription.stop();
+      liveQuestionRef.current = null;
       
       // 1️⃣ Stop timer first
       if (timerIntervalRef.current) {
@@ -711,22 +470,7 @@ function InterviewRoom() {
         console.log("[EndInterview] ✅ Timer stopped");
       }
       
-      // 2️⃣ Stop media recorder
-      if (mediaRecorderRef.current) {
-        try {
-          if (mediaRecorderRef.current.state !== "inactive") {
-            console.log("[EndInterview] Stopping media recorder...");
-            mediaRecorderRef.current.stop();
-            // Wait briefly for final data
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-        } catch (e) {
-          console.warn("[EndInterview] Error stopping recorder:", e);
-        }
-      }
-      console.log("[EndInterview] ✅ Recorder stopped");
-      
-      // 3️⃣ Stop all media tracks (camera + microphone)
+      // 2️⃣ Stop all media tracks (camera + microphone)
       if (videoStream) {
         console.log("[EndInterview] Stopping all media tracks (camera/mic)...");
         try {
@@ -751,7 +495,7 @@ function InterviewRoom() {
         }
       }
       
-      // 4️⃣ Clear video element and disconnect stream
+      // 3️⃣ Clear video element and disconnect stream
       if (videoRef.current) {
         console.log("[EndInterview] Clearing video element...");
         try {
@@ -763,14 +507,12 @@ function InterviewRoom() {
         }
       }
       
-      // 5️⃣ Clean up state
+      // 4️⃣ Clean up state
       setVideoStream(null);
       setIsRecording(false);
-      mediaRecorderRef.current = null;
-      recordedChunksRef.current = [];
       console.log("[EndInterview] ✅ State cleaned up");
       
-      // 6️⃣ Submit end request and navigate
+      // 5️⃣ Submit end request and navigate
       console.log("[EndInterview] Sending end request to API...");
       const response = await API.post(`/interviews/${interviewId}/end`);
       console.log("[EndInterview] ✅ Interview ended successfully");
@@ -797,7 +539,7 @@ function InterviewRoom() {
             <p style={c.loadTitle}>Setting up your interview room</p>
             <p style={c.loadSub}>Initializing camera, microphone and questions…</p>
             <div style={c.loadDots}>
-              {["Connecting media","Loading questions","Preparing recorder"].map((s, i) => (
+              {["Connecting media","Loading questions","Preparing live transcription"].map((s, i) => (
                 <div key={i} style={{ ...c.loadStep, animationDelay: `${i * 0.15}s` }} className="ix-fade">
                   <span style={c.loadStepDot} />
                   {s}
@@ -938,6 +680,8 @@ function InterviewRoom() {
         {/* ── RIGHT PANEL ── */}
         <aside style={c.rightPanel}>
 
+          <LiveTranscript transcription={liveTranscription} />
+
           {/* Candidate card */}
           <div style={c.sideCard}>
             <div style={c.sideCardHeader}>
@@ -1048,7 +792,7 @@ function InterviewRoom() {
                 Submitting…
               </>
             ) : (
-              <>✓ &nbsp;Submit &amp; Next</>
+              <>✓ &nbsp;Stop Answer &amp; Next</>
             )}
           </button>
         </div>

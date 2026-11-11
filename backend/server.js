@@ -1,9 +1,11 @@
 const express = require("express");
+const http = require("http");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const path = require("path");
 const connectDB = require("./config/db");
+const { attachTranscriptionSocket } = require("./websocket/transcriptionSocket");
 
 dotenv.config();
 const config = require("./config/env");
@@ -65,8 +67,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Something went wrong" });
 });
 
-const PORT = config.port;
+const httpServer = http.createServer(app);
+attachTranscriptionSocket(httpServer);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+httpServer.listen(config.port, () => {
+  console.log(`Server running on port ${config.port}`);
 });
