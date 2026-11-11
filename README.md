@@ -56,6 +56,7 @@ flowchart TD
 
 ## 🔄 Interview Workflow
 
+<<<<<<< HEAD
 ```mermaid
 flowchart TD
     A[Start Interview] --> B[Configure Interview]
@@ -70,6 +71,12 @@ flowchart TD
     I --> J[Save Interview Results]
     J --> K[Performance Dashboard]
 ```
+=======
+Local storage integration (temporary frontend storage)
+------------------------------------------------------------------
+Backend
+REST API for feedback submission
+>>>>>>> 19e0021 (Integrate ScribeCrate real-time transcription)
 
 ## 📊 Evaluation Framework
 
@@ -89,7 +96,45 @@ flowchart TD
     G --> H[Improvement Recommendations]
 ```
 
+<<<<<<< HEAD
 ## 🛠️ Tech Stack
+=======
+Role-based access control
+------------------------------------------
+## Local transcription setup
+
+GitHired uses [ScribeCrate Live](https://github.com/hwdsl2/scribecrate-live) for live,
+self-hosted Whisper transcription. Start the Docker service with its WebSocket endpoint
+on `localhost:9090` and REST endpoint on `localhost:8000`.
+
+Configure the backend using an uncommitted `backend/.env` file:
+
+```env
+SCRIBECRATE_WS_URL=ws://localhost:9090
+SCRIBECRATE_REST_URL=http://localhost:8000
+SCRIBECRATE_API_KEY=replace-with-your-server-key
+SCRIBECRATE_MODEL=base
+SCRIBECRATE_LANGUAGE=en
+```
+
+Never commit `backend/.env` or paste API keys into source files. The browser connects
+only to GitHired's authenticated WebSocket proxy; the ScribeCrate key stays in the
+backend environment.
+
+Install dependencies and run the applications:
+
+```bash
+npm install
+cd backend && npm install && npm start
+cd frontend && npm install && npm run dev
+```
+
+The existing `/api/whisper/transcribe` endpoint remains as a compatibility route for
+uploaded files, but it now delegates to ScribeCrate's OpenAI-compatible REST API.
+
+Tech Stack
+Frontend
+>>>>>>> 19e0021 (Integrate ScribeCrate real-time transcription)
 
 | Layer            | Technologies                            |
 | ---------------- | --------------------------------------- |
@@ -127,11 +172,15 @@ GitHired/
 
 ## ⚡ Getting Started
 
+<<<<<<< HEAD
 ### Prerequisites
 
 * Node.js and npm
 * MongoDB instance
 * OpenAI API key, if using OpenAI-powered features
+=======
+Node.js
+>>>>>>> 19e0021 (Integrate ScribeCrate real-time transcription)
 
 ### 1. Clone the Repository
 
