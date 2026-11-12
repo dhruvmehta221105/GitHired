@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { Menu, X, ChevronDown, LogOut, User, LayoutDashboard } from 'lucide-react';
 
@@ -9,6 +9,7 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -39,6 +40,10 @@ export default function Navbar() {
     
   ];
 
+  const getNavTarget = (href) => (
+    location.pathname === '/' ? href : `/${href}`
+  );
+
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -49,19 +54,18 @@ export default function Navbar() {
     >
       <div className="max-w-[1200px] mx-auto px-6 h-[72px] flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">IX</span>
-          </div>
-          <span className="text-[18px] font-bold text-text tracking-[-0.5px]">
-            GitHired
-          </span>
+          <img
+            src="/files/GitHired%20Green%20Tie%20Logo.png"
+            alt="GitHired"
+            className="w-[250px] h-12 object-contain object-left"
+          />
         </Link>
 
         <div className="hidden lg:flex items-center gap-8">
           {navLinks.map((link) => (
             <a
               key={link.label}
-              href={link.href}
+              href={getNavTarget(link.href)}
               className="text-[14px] font-medium text-text-secondary hover:text-text transition-colors duration-200"
             >
               {link.label}
@@ -159,7 +163,7 @@ export default function Navbar() {
             {navLinks.map((link) => (
               <a
                 key={link.label}
-                href={link.href}
+                href={getNavTarget(link.href)}
                 onClick={() => setMobileOpen(false)}
                 className="text-[16px] font-medium text-text py-3 px-4 rounded-xl hover:bg-bg-secondary transition-colors"
               >

@@ -5,9 +5,11 @@ import {
   AlertTriangle,
   ArrowRight,
   Brain,
+  CheckCheck,
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Mic2,
   Play,
   Sparkles,
   Target,
@@ -195,7 +197,7 @@ function Interviews() {
         ) : (
           <>
             <section style={styles.metricGrid} aria-label="Interview summary">
-              <Metric icon={<Trophy size={19} />} label="Average score" value={averageScore === null ? "--" : `${averageScore}/100`} tone="violet" />
+              <Metric icon={<Trophy size={19} />} label="Average score" value={averageScore === null ? "--" : `${averageScore}/100`} tone="green" />
               <Metric icon={<CheckCircle2 size={19} />} label="Completed interviews" value={completedInterviews.length} tone="green" />
               <Metric icon={<Activity size={19} />} label="Total practice sessions" value={interviews.length} tone="blue" />
               <Metric icon={<Target size={19} />} label="Focus areas" value={weakAreas.length || "None"} tone="orange" />
@@ -267,7 +269,7 @@ function Interviews() {
                 </section>
 
                 <section style={styles.sideSection}>
-                  <div style={styles.sectionHeaderSmall}><Sparkles size={17} color="#6e54f6" /><h2 style={styles.sideTitle}>Recommended practice</h2></div>
+                  <div style={styles.sectionHeaderSmall}><Sparkles size={17} color="#1f5e3b" /><h2 style={styles.sideTitle}>Recommended practice</h2></div>
                   {(weakAreas.length ? weakAreas : [{ key: "technical" }]).slice(0, 3).map((area) => (
                     <div key={area.key} style={styles.recommendation}>
                       <span style={styles.recommendationDot} />
@@ -276,6 +278,43 @@ function Interviews() {
                   ))}
                 </section>
               </aside>
+            </section>
+
+            <section style={styles.roadmap}>
+              <div style={styles.roadmapHeader}>
+                <div>
+                  <p style={styles.sectionKicker}>Your next move</p>
+                  <h2 style={styles.sectionTitle}>Build a stronger interview habit</h2>
+                  <p style={styles.roadmapSubtitle}>Use this simple loop to turn each practice session into measurable progress.</p>
+                </div>
+                <div style={styles.roadmapBadge}><Sparkles size={16} /> Personal preparation loop</div>
+              </div>
+              <div style={styles.roadmapGrid}>
+                <RoadmapCard
+                  number="01"
+                  icon={<CalendarDays size={18} />}
+                  title="Set a focused session"
+                  text="Choose a role, difficulty, and question count that match your next opportunity."
+                  action="Schedule interview"
+                  onClick={() => navigate("/schedule-interview")}
+                />
+                <RoadmapCard
+                  number="02"
+                  icon={<Mic2 size={18} />}
+                  title="Practice out loud"
+                  text="Answer naturally and explain your thinking. Clear communication matters as much as the final answer."
+                  action="View active sessions"
+                  onClick={activeInterview ? () => handleInterviewAction(activeInterview) : undefined}
+                />
+                <RoadmapCard
+                  number="03"
+                  icon={<CheckCheck size={18} />}
+                  title="Review and improve"
+                  text="Use your score and feedback to choose one improvement target for the next round."
+                  action="Review recent results"
+                  onClick={completedInterviews[0] ? () => navigate(`/interview-result/${completedInterviews[0]._id}`) : undefined}
+                />
+              </div>
             </section>
           </>
         )}
@@ -292,21 +331,37 @@ function EmptyState({ onCreate }) {
   return <div style={styles.empty}><div style={styles.emptyIcon}><CalendarDays size={22} /></div><h3 style={styles.emptyTitle}>No interviews yet</h3><p style={styles.emptyText}>Create your first practice session to start building a performance baseline.</p><button style={styles.primaryButton} onClick={onCreate}>Create interview <ArrowRight size={16} /></button></div>;
 }
 
+function RoadmapCard({ number, icon, title, text, action, onClick }) {
+  return (
+    <article style={styles.roadmapCard}>
+      <div style={styles.roadmapCardTop}>
+        <div style={styles.roadmapIcon}>{icon}</div>
+        <span style={styles.roadmapNumber}>{number}</span>
+      </div>
+      <h3 style={styles.roadmapTitle}>{title}</h3>
+      <p style={styles.roadmapText}>{text}</p>
+      <button style={styles.roadmapAction} onClick={onClick} disabled={!onClick}>
+        {action} <ArrowRight size={14} />
+      </button>
+    </article>
+  );
+}
+
 const styles = {
   page: { minHeight: "100vh", background: "#f5f6fa", color: "#0f1117", fontFamily: "'Plus Jakarta Sans', sans-serif" },
   main: { maxWidth: 1240, margin: "0 auto", padding: "116px 28px 64px" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, marginBottom: 30 },
-  eyebrow: { margin: "0 0 9px", color: "#6e54f6", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.2px" },
+  eyebrow: { margin: "0 0 9px", color: "#1f5e3b", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.2px" },
   title: { margin: 0, fontSize: "clamp(30px, 4vw, 44px)", letterSpacing: "-1.5px", lineHeight: 1.06, fontWeight: 800 },
   subtitle: { margin: "12px 0 0", color: "#697386", fontSize: 15, lineHeight: 1.6 },
-  primaryButton: { display: "inline-flex", alignItems: "center", gap: 8, border: 0, borderRadius: 10, padding: "12px 16px", background: "#6e54f6", color: "#fff", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
+  primaryButton: { display: "inline-flex", alignItems: "center", gap: 8, border: 0, borderRadius: 10, padding: "12px 16px", background: "#1f5e3b", color: "#fff", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
   success: { padding: "12px 16px", marginBottom: 18, borderRadius: 10, background: "#e7f8f1", color: "#177955", fontSize: 14 },
   error: { padding: "12px 16px", marginBottom: 18, borderRadius: 10, background: "#fff0f0", color: "#b42318", fontSize: 14 },
   loading: { padding: "80px 0", color: "#697386", textAlign: "center" },
   metricGrid: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 34 },
   metric: { display: "flex", alignItems: "center", gap: 13, padding: "18px", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 14 },
   metricIcon: { width: 38, height: 38, display: "grid", placeItems: "center", borderRadius: 10 },
-  toneviolet: { color: "#6e54f6", background: "#efecff" }, tonegreen: { color: "#16866a", background: "#e3f8f1" }, toneblue: { color: "#2563a8", background: "#e7f1ff" }, toneorange: { color: "#c76b1d", background: "#fff1df" },
+  tonegreen: { color: "#1f5e3b", background: "#e8f0eb" }, toneblue: { color: "#3f6b50", background: "#edf5ef" }, toneorange: { color: "#557a60", background: "#f0f6f1" },
   metricLabel: { display: "block", color: "#697386", fontSize: 12, marginBottom: 5 },
   metricValue: { display: "block", fontSize: 23, letterSpacing: "-0.6px" },
   contentGrid: { display: "grid", gridTemplateColumns: "minmax(0, 1.65fr) minmax(300px, .9fr)", gap: 24 },
@@ -317,16 +372,28 @@ const styles = {
   sectionCount: { color: "#8a93a3", fontSize: 12 },
   interviewList: { display: "flex", flexDirection: "column", gap: 8 },
   interviewRow: { display: "flex", alignItems: "center", gap: 13, minHeight: 74, padding: "12px 14px", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12 },
-  roleIcon: { display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 10, background: "#f0edff", color: "#6e54f6", flexShrink: 0 },
+  roleIcon: { display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 10, background: "#e8f0eb", color: "#1f5e3b", flexShrink: 0 },
   interviewInfo: { minWidth: 0, flex: 1 }, rowTitle: { fontWeight: 750, fontSize: 14 }, rowMeta: { marginTop: 5, color: "#8a93a3", fontSize: 12 },
   rowScore: { color: "#4b5565", fontSize: 13, fontWeight: 750, minWidth: 86, textAlign: "right" },
-  iconAction: { display: "inline-flex", alignItems: "center", gap: 7, border: 0, background: "transparent", color: "#6e54f6", fontWeight: 750, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" },
-  activePanel: { padding: 22, color: "#fff", background: "#121827", borderRadius: 16 }, panelIcon: { display: "grid", placeItems: "center", width: 36, height: 36, color: "#a99aff", background: "#29234b", borderRadius: 10 }, panelKicker: { margin: "18px 0 6px", color: "#9aa4b6", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px" }, panelTitle: { margin: 0, fontSize: 20 }, panelText: { margin: "8px 0 18px", color: "#aeb7c8", fontSize: 13, lineHeight: 1.55 }, panelButton: { display: "inline-flex", alignItems: "center", gap: 8, border: 0, borderRadius: 9, padding: "10px 12px", background: "#6e54f6", color: "#fff", fontWeight: 700, cursor: "pointer" },
+  iconAction: { display: "inline-flex", alignItems: "center", gap: 7, border: 0, background: "transparent", color: "#1f5e3b", fontWeight: 750, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" },
+  activePanel: { padding: 22, color: "#174a2e", background: "#e8f0eb", border: "1px solid #b9d1c0", borderRadius: 16 }, panelIcon: { display: "grid", placeItems: "center", width: 36, height: 36, color: "#1f5e3b", background: "#fff", borderRadius: 10 }, panelKicker: { margin: "18px 0 6px", color: "#557a60", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px" }, panelTitle: { margin: 0, fontSize: 20 }, panelText: { margin: "8px 0 18px", color: "#3f6b50", fontSize: 13, lineHeight: 1.55 }, panelButton: { display: "inline-flex", alignItems: "center", gap: 8, border: 0, borderRadius: 9, padding: "10px 12px", background: "#1f5e3b", color: "#fff", fontWeight: 700, cursor: "pointer" },
   sideSection: { padding: 19, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 14 }, sectionHeaderSmall: { display: "flex", alignItems: "center", gap: 8, marginBottom: 15 }, sideTitle: { margin: 0, fontSize: 15 }, muted: { margin: 0, color: "#8a93a3", fontSize: 13, lineHeight: 1.55 },
   areaRow: { marginBottom: 14 }, areaLabel: { display: "block", fontSize: 13 }, areaMeta: { display: "block", marginTop: 3, color: "#8a93a3", fontSize: 11 },
   areaTrack: { height: 6, marginTop: 8, background: "#edf0f4", borderRadius: 20, overflow: "hidden" }, areaFill: { height: "100%", background: "#e58a3a", borderRadius: 20 },
-  recommendation: { display: "flex", gap: 9, marginBottom: 14 }, recommendationDot: { width: 7, height: 7, marginTop: 5, borderRadius: "50%", background: "#6e54f6", flexShrink: 0 }, recommendationTitle: { display: "block", fontSize: 13 }, recommendationText: { margin: "4px 0 0", color: "#697386", fontSize: 12, lineHeight: 1.45 },
-  empty: { padding: "56px 24px", textAlign: "center", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 14 }, emptyIcon: { display: "grid", placeItems: "center", width: 46, height: 46, margin: "0 auto 14px", color: "#6e54f6", background: "#efecff", borderRadius: 12 }, emptyTitle: { margin: 0, fontSize: 18 }, emptyText: { maxWidth: 360, margin: "8px auto 18px", color: "#697386", fontSize: 14, lineHeight: 1.5 }
+  recommendation: { display: "flex", gap: 9, marginBottom: 14 }, recommendationDot: { width: 7, height: 7, marginTop: 5, borderRadius: "50%", background: "#1f5e3b", flexShrink: 0 }, recommendationTitle: { display: "block", fontSize: 13 }, recommendationText: { margin: "4px 0 0", color: "#697386", fontSize: 12, lineHeight: 1.45 },
+  empty: { padding: "56px 24px", textAlign: "center", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 14 }, emptyIcon: { display: "grid", placeItems: "center", width: 46, height: 46, margin: "0 auto 14px", color: "#1f5e3b", background: "#e8f0eb", borderRadius: 12 }, emptyTitle: { margin: 0, fontSize: 18 }, emptyText: { maxWidth: 360, margin: "8px auto 18px", color: "#697386", fontSize: 14, lineHeight: 1.5 },
+  roadmap: { marginTop: 28, padding: 24, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 },
+  roadmapHeader: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, marginBottom: 20 },
+  roadmapSubtitle: { margin: "8px 0 0", color: "#697386", fontSize: 13, lineHeight: 1.5 },
+  roadmapBadge: { display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 11px", borderRadius: 999, color: "#1f5e3b", background: "#e8f0eb", fontSize: 11, fontWeight: 750, whiteSpace: "nowrap" },
+  roadmapGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 },
+  roadmapCard: { padding: 17, background: "#f8faf8", border: "1px solid #e2ebe4", borderRadius: 13 },
+  roadmapCardTop: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 15 },
+  roadmapIcon: { display: "grid", placeItems: "center", width: 36, height: 36, borderRadius: 10, color: "#1f5e3b", background: "#dcebe1" },
+  roadmapNumber: { color: "#91a699", fontSize: 12, fontWeight: 800, letterSpacing: "1px" },
+  roadmapTitle: { margin: 0, fontSize: 15, letterSpacing: "-.2px" },
+  roadmapText: { minHeight: 58, margin: "8px 0 15px", color: "#697386", fontSize: 12, lineHeight: 1.55 },
+  roadmapAction: { display: "inline-flex", alignItems: "center", gap: 6, padding: 0, border: 0, background: "transparent", color: "#1f5e3b", fontSize: 12, fontWeight: 800, cursor: "pointer" }
 };
 
 export default Interviews;

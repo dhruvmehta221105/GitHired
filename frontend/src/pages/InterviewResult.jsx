@@ -18,9 +18,9 @@ import API from "../api";
 import Navbar from "../components/common/Navbar";
 
 const categories = [
-  { key: "technical", label: "Technical skills", color: "#6e54f6" },
-  { key: "communication", label: "Communication", color: "#16866a" },
-  { key: "problemSolving", label: "Problem solving", color: "#c76b1d" }
+  { key: "technical", label: "Technical skills", color: "#1f5e3b" },
+  { key: "communication", label: "Communication", color: "#3f9b62" },
+  { key: "problemSolving", label: "Problem solving", color: "#6b8f71" }
 ];
 
 const categoryTopics = {
@@ -212,26 +212,26 @@ function PageState({ text, action }) { return <div style={styles.statePage}><p>{
 const styles = {
   page: { minHeight: "100vh", background: "#f5f6fa", color: "#0f1117", fontFamily: "'Plus Jakarta Sans', sans-serif" },
   main: { maxWidth: 1080, margin: "0 auto", padding: "108px 28px 64px" },
-  backButton: { display: "inline-flex", alignItems: "center", gap: 7, padding: 0, marginBottom: 24, border: 0, background: "transparent", color: "#6e54f6", fontWeight: 750, cursor: "pointer" },
+  backButton: { display: "inline-flex", alignItems: "center", gap: 7, padding: 0, marginBottom: 24, border: 0, background: "transparent", color: "#1f5e3b", fontWeight: 750, cursor: "pointer" },
   header: { display: "flex", alignItems: "end", justifyContent: "space-between", gap: 20, marginBottom: 28 },
-  eyebrow: { margin: "0 0 8px", color: "#6e54f6", fontSize: 11, fontWeight: 800, letterSpacing: "1.2px", textTransform: "uppercase" },
+  eyebrow: { margin: "0 0 8px", color: "#1f5e3b", fontSize: 11, fontWeight: 800, letterSpacing: "1.2px", textTransform: "uppercase" },
   title: { margin: 0, fontSize: "clamp(30px, 4vw, 42px)", letterSpacing: "-1.4px" },
   subtitle: { margin: "10px 0 0", color: "#697386", fontSize: 14 },
-  retryButton: { display: "inline-flex", alignItems: "center", gap: 8, border: 0, borderRadius: 10, padding: "11px 15px", background: "#6e54f6", color: "#fff", fontWeight: 750, cursor: "pointer", whiteSpace: "nowrap" },
+  retryButton: { display: "inline-flex", alignItems: "center", gap: 8, border: 0, borderRadius: 10, padding: "11px 15px", background: "#1f5e3b", color: "#fff", fontWeight: 750, cursor: "pointer", whiteSpace: "nowrap" },
   secondaryButton: { display: "inline-flex", alignItems: "center", gap: 8, border: "1px solid #dfe2ea", borderRadius: 10, padding: "11px 15px", background: "#fff", color: "#4b5565", fontWeight: 750, cursor: "pointer" },
   error: { padding: "12px 16px", marginBottom: 18, borderRadius: 10, background: "#fff0f0", color: "#b42318", fontSize: 14 },
   heroGrid: { display: "grid", gridTemplateColumns: "minmax(230px, .8fr) minmax(0, 1.4fr)", gap: 16, marginBottom: 28 },
-  scorePanel: { padding: 24, color: "#fff", background: "#121827", borderRadius: 16 },
-  scoreIcon: { display: "grid", placeItems: "center", width: 38, height: 38, color: "#b8adff", background: "#2a244d", borderRadius: 10 },
+  scorePanel: { padding: 24, color: "#fff", background: "#1f5e3b", borderRadius: 16 },
+  scoreIcon: { display: "grid", placeItems: "center", width: 38, height: 38, color: "#1f5e3b", background: "#e8f0eb", borderRadius: 10 },
   panelKicker: { margin: "16px 0 7px", color: "#8893a7", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px" },
   scoreLine: { fontSize: 48, lineHeight: 1, fontWeight: 800, letterSpacing: "-2px" }, scoreUnit: { marginLeft: 6, color: "#8d97a9", fontSize: 16, letterSpacing: 0 },
-  panelText: { margin: "12px 0 18px", color: "#aeb7c8", fontSize: 13, lineHeight: 1.5 }, scoreTrack: { height: 7, background: "#2b3446", borderRadius: 20, overflow: "hidden" }, scoreFill: { height: "100%", background: "#8b7bff", borderRadius: 20 },
+  panelText: { margin: "12px 0 18px", color: "#d7e6db", fontSize: 13, lineHeight: 1.5 }, scoreTrack: { height: 7, background: "#174a2e", borderRadius: 20, overflow: "hidden" }, scoreFill: { height: "100%", background: "#b9d1c0", borderRadius: 20 },
   summaryPanel: { padding: 24, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, summaryHeader: { display: "flex", justifyContent: "space-between", alignItems: "start", gap: 15 }, summaryTitle: { margin: 0, fontSize: 21 }, completedBadge: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 20, color: "#16866a", background: "#e3f8f1", fontSize: 11, fontWeight: 800, textTransform: "capitalize" }, summaryGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 20, marginTop: 28 }, fieldLabel: { display: "block", marginBottom: 6, color: "#8a93a3", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".6px" }, summaryValue: { display: "block", fontSize: 14 },
-  section: { padding: 22, marginBottom: 16, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, sectionHeading: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 19 }, headingIcon: { display: "grid", placeItems: "center", width: 32, height: 32, color: "#6e54f6", background: "#efecff", borderRadius: 9, flexShrink: 0 }, sectionTitle: { margin: 0, fontSize: 18 }, sectionDetail: { margin: "5px 0 0", color: "#8a93a3", fontSize: 12 },
+  section: { padding: 22, marginBottom: 16, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, sectionHeading: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 19 }, headingIcon: { display: "grid", placeItems: "center", width: 32, height: 32, color: "#1f5e3b", background: "#e8f0eb", borderRadius: 9, flexShrink: 0 }, sectionTitle: { margin: 0, fontSize: 18 }, sectionDetail: { margin: "5px 0 0", color: "#8a93a3", fontSize: 12 },
   categoryGrid: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }, categoryCard: { padding: 15, background: "#fafbfc", border: "1px solid #edf0f4", borderRadius: 11 }, categoryTop: { display: "flex", justifyContent: "space-between", gap: 12, color: "#4b5565", fontSize: 13 }, categoryTopStrong: { fontWeight: 800 }, categoryTrack: { height: 7, marginTop: 13, background: "#e9edf2", borderRadius: 20, overflow: "hidden" }, categoryFill: { height: "100%", borderRadius: 20 },
   twoColumn: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16, marginBottom: 16 }, sectionBlock: { minHeight: 170, padding: 22, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, longText: { margin: 0, color: "#4b5565", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }, pending: { margin: 0, color: "#8a93a3", fontSize: 13, lineHeight: 1.6 }, topicLine: { margin: "0 0 8px", color: "#4b5565", fontSize: 14 }, alertIcon: { display: "grid", placeItems: "center", width: 18, height: 18, color: "#c76b1d", background: "#fff1df", borderRadius: "50%", fontSize: 12, fontWeight: 800 },
-  questionList: { display: "flex", flexDirection: "column", gap: 8 }, questionCard: { border: "1px solid #e8eaf0", borderRadius: 11, overflow: "hidden" }, questionHeader: { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", border: 0, background: "#fff", color: "#0f1117", textAlign: "left", cursor: "pointer" }, questionNumber: { color: "#6e54f6", fontWeight: 800, fontSize: 12 }, questionPrompt: { flex: 1, fontSize: 13, fontWeight: 700, lineHeight: 1.45 }, questionBody: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 18, padding: "0 16px 17px", background: "#fafbfc" }, transcript: { margin: 0, color: "#4b5565", fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }, questionFeedback: { paddingLeft: 18, borderLeft: "1px solid #e3e7ed" },
-  topicGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }, topicCard: { display: "flex", gap: 11, padding: 14, background: "#fafbfc", border: "1px solid #edf0f4", borderRadius: 11 }, topicIcon: { display: "grid", placeItems: "center", width: 30, height: 30, color: "#6e54f6", background: "#efecff", borderRadius: 8, flexShrink: 0 }, topicTitle: { fontSize: 13 }, topicText: { margin: "4px 0 0", color: "#697386", fontSize: 12, lineHeight: 1.5 },
+  questionList: { display: "flex", flexDirection: "column", gap: 8 }, questionCard: { border: "1px solid #e8eaf0", borderRadius: 11, overflow: "hidden" }, questionHeader: { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", border: 0, background: "#fff", color: "#0f1117", textAlign: "left", cursor: "pointer" }, questionNumber: { color: "#1f5e3b", fontWeight: 800, fontSize: 12 }, questionPrompt: { flex: 1, fontSize: 13, fontWeight: 700, lineHeight: 1.45 }, questionBody: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 18, padding: "0 16px 17px", background: "#fafbfc" }, transcript: { margin: 0, color: "#4b5565", fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }, questionFeedback: { paddingLeft: 18, borderLeft: "1px solid #e3e7ed" },
+  topicGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }, topicCard: { display: "flex", gap: 11, padding: 14, background: "#fafbfc", border: "1px solid #edf0f4", borderRadius: 11 }, topicIcon: { display: "grid", placeItems: "center", width: 30, height: 30, color: "#1f5e3b", background: "#e8f0eb", borderRadius: 8, flexShrink: 0 }, topicTitle: { fontSize: 13 }, topicText: { margin: "4px 0 0", color: "#697386", fontSize: 12, lineHeight: 1.5 },
   footerActions: { display: "flex", justifyContent: "space-between", gap: 12, paddingTop: 6 }, statePage: { minHeight: "100vh", display: "grid", placeItems: "center", gap: 14, color: "#697386", fontFamily: "'Plus Jakarta Sans', sans-serif" }
 };
 

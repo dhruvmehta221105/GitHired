@@ -48,10 +48,11 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-14">
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">IX</span>
-              </div>
-              <span className="text-[18px] font-bold text-text tracking-[-0.5px]">GitHired</span>
+              <img
+                src="/files/GitHired%20Green%20Tie%20Logo.png"
+                alt="GitHired"
+                className="w-[190px] h-12 object-contain object-left"
+              />
             </Link>
             <p className="text-[13px] text-text-secondary leading-[1.7] mb-5 max-w-[260px]">
               The all-in-one interview preparation platform for ambitious professionals.
