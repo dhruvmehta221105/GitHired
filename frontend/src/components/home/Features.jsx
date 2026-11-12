@@ -105,6 +105,35 @@ export default function Features() {
             );
           })}
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-10 max-w-[900px] mx-auto">
+          {[
+            {
+              src: '/files/08-ai-interviewer-voice.svg',
+              alt: 'AI voice interviewer experience',
+              title: 'Voice-first mock interviews',
+            },
+            {
+              src: '/files/11-resume-ats-review.svg',
+              alt: 'ATS resume review dashboard',
+              title: 'ATS-ready resume feedback',
+            },
+          ].map((asset) => (
+            <motion.div
+              key={asset.src}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45 }}
+              className="bg-bg-card rounded-2xl border border-border/60 overflow-hidden hover:shadow-[0_8px_28px_rgba(0,0,0,0.05)] transition-shadow"
+            >
+              <img src={asset.src} alt={asset.alt} className="w-full aspect-[3/2] object-cover" />
+              <div className="px-5 py-4">
+                <h3 className="text-[15px] font-bold text-text">{asset.title}</h3>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   );

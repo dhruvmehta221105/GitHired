@@ -200,9 +200,16 @@ export default function Hero() {
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="flex-1 w-full flex justify-center lg:justify-end"
+            className="flex-1 w-full flex justify-center lg:justify-end lg:-mr-24"
           >
-            <DashboardMockup />
+            <div className="hidden">
+              <DashboardMockup />
+            </div>
+            <img
+              src="/files/07-hero-devices.svg"
+              alt="GitHired workflow from role selection to interview report"
+              className="w-full lg:w-[calc(100%+150px)] max-w-none mt-5 rounded-2xl border border-border shadow-[0_8px_40px_rgba(0,0,0,0.06)]"
+            />
           </motion.div>
         </div>
       </div>

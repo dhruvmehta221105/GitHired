@@ -1,30 +1,24 @@
 import { motion } from 'framer-motion';
-import { Building2, Play, MessageSquareText, TrendingUp } from 'lucide-react';
+import { Building2, Play, BarChart3 } from 'lucide-react';
 
 const steps = [
   {
     step: '01',
     icon: Building2,
-    title: 'Choose Your Company',
-    description: 'Select from 50+ companies including Google, Amazon, Microsoft, and more. Pick your role and interview type.',
+    title: 'Choose Your Role',
+    description: 'Select your target company, role, and interview type to create a focused preparation session.',
   },
   {
     step: '02',
     icon: Play,
-    title: 'Start Your Interview',
-    description: 'Begin a realistic AI-powered or HR expert interview session tailored to the company\'s actual interview process.',
+    title: 'Practice with AI',
+    description: 'Answer realistic questions in a guided AI interview tailored to your role and experience level.',
   },
   {
     step: '03',
-    icon: MessageSquareText,
-    title: 'Receive AI Analysis',
-    description: 'Get instant, detailed feedback on your communication, technical skills, problem-solving, and overall performance.',
-  },
-  {
-    step: '04',
-    icon: TrendingUp,
-    title: 'Track & Improve',
-    description: 'Monitor your progress over time with analytics, identify weak areas, and keep improving until you\'re interview-ready.',
+    icon: BarChart3,
+    title: 'Get Your Report',
+    description: 'Review your score, strengths, and improvement areas so every practice session moves you closer to being interview-ready.',
   },
 ];
 
@@ -43,13 +37,23 @@ export default function HowItWorks() {
             How It Works
           </span>
           <h2 className="text-[36px] sm:text-[42px] lg:text-[48px] font-extrabold text-text tracking-[-1.5px] leading-[1.1] mb-5">
-            Four steps to interview mastery.
+            Three steps to interview mastery.
           </h2>
           <p className="text-[17px] text-text-secondary max-w-[480px] mx-auto leading-[1.7]">
             A simple, structured approach to help you prepare
             systematically and land offers with confidence.
           </p>
         </motion.div>
+
+        <motion.img
+          src="/files/09-how-it-works.svg"
+          alt="GitHired interview preparation process"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-[920px] mx-auto mb-16 rounded-2xl border border-border shadow-[0_8px_32px_rgba(0,0,0,0.05)]"
+        />
 
         <div className="relative max-w-[680px] mx-auto">
           <div className="absolute left-[23px] top-[60px] bottom-[60px] w-px bg-border hidden md:block" />
