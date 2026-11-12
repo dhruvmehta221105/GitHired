@@ -36,3 +36,25 @@ test("preserves completed text when provisional updates change", () => {
   );
   assert.equal(result.transcript, "Good answer with a strong example");
 });
+
+test("replaces a repeated time-coded segment instead of appending it", () => {
+  const first = mergeTranscriptSegments([], [], [
+    { start: 0, end: 1.6, text: "Walk me through your tech stack", completed: true }
+  ]);
+  const second = mergeTranscriptSegments(first.completedSegments, first.provisionalSegments, [
+    { start: 0, end: 1.6, text: "Walk me through your typical tech stack", completed: true }
+  ]);
+
+  assert.equal(second.transcript, "Walk me through your typical tech stack");
+});
+
+test("does not duplicate cumulative provisional text", () => {
+  const first = mergeTranscriptSegments([], [], [
+    { start: 0, end: 2, text: "I chose React" }
+  ]);
+  const second = mergeTranscriptSegments(first.completedSegments, first.provisionalSegments, [
+    { start: 0, end: 3, text: "I chose React because it is familiar" }
+  ]);
+
+  assert.equal(second.transcript, "I chose React because it is familiar");
+});

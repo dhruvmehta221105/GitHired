@@ -143,12 +143,6 @@ export default function Login() {
               {errors.password && <p className="text-[12px] text-red-500 mt-1.5 font-medium">{errors.password}</p>}
             </div>
 
-            <div className="flex items-center justify-end">
-              <Link to="/forgot-password" className="text-[13px] font-semibold text-accent hover:text-accent-dark transition-colors">
-                Forgot password?
-              </Link>
-            </div>
-
             <button
               type="submit"
               disabled={loading}

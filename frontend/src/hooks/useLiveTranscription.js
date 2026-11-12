@@ -175,6 +175,7 @@ export const useLiveTranscription = ({ interviewId, mediaStream = null }) => {
     }
     try {
       const capture = await createLivePcmCapture({
+        stream: mediaStream,
         onChunk: (chunk) => {
           if (socket.readyState === WebSocket.OPEN) socket.send(chunk.buffer);
         }
@@ -185,7 +186,7 @@ export const useLiveTranscription = ({ interviewId, mediaStream = null }) => {
       setState((current) => ({ ...current, status: "error", error: error.message }));
       throw error;
     }
-  }, [state.status]);
+  }, [mediaStream, state.status]);
 
   useEffect(() => () => {
     stop();
