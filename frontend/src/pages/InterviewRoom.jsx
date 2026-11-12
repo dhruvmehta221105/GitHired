@@ -1,5 +1,17 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
+import {
+  AlertTriangle,
+  CircleHelp,
+  Mic,
+  MicOff,
+  Pause,
+  Send,
+  ShieldCheck,
+  Square,
+  Video,
+  VideoOff
+} from "lucide-react";
 import API from "../api";
 import { stopAllMediaTracks } from "../utils/interviewUtils";
 import { useLiveTranscription } from "../hooks/useLiveTranscription";
@@ -31,10 +43,24 @@ const GLOBAL_CSS = `
   .ix-pulse  { animation: recPulse 1.6s ease-in-out infinite; }
   .ix-fade   { animation: fadeIn 0.3s ease both; }
 
-  .ix-ctrl-btn:hover  { filter: brightness(1.15); transform: scale(1.06); }
-  .ix-submit-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(110,84,246,0.45) !important; }
-  .ix-end-btn:hover:not(:disabled)    { background: #b91c1c !important; }
-  .ix-shortcut-row:hover kbd { background: #1e3a5f !important; }
+  .ix-ctrl-btn:hover  { border-color: #1f5e3b !important; transform: translateY(-1px); }
+  .ix-submit-btn:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(31,94,59,0.24) !important; }
+  .ix-end-btn:hover:not(:disabled)    { background: #f0f7f2 !important; }
+  .ix-shortcut-row:hover kbd { background: #e8f0eb !important; color: #174a2e !important; }
+  @media (max-width: 900px) {
+    .interview-room-main { overflow-y: auto !important; flex-direction: column !important; }
+    .interview-room-left { min-height: 620px !important; }
+    .interview-room-side { width: 100% !important; overflow: visible !important; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .interview-room-transcript { grid-column: 1 / -1; }
+  }
+  @media (max-width: 620px) {
+    .interview-room-main { padding: 14px !important; }
+    .interview-room-side { display: flex !important; }
+    .interview-room-topbar { padding: 0 14px !important; }
+    .interview-room-topbar .ix-status-chip { display: none; }
+    .interview-room-bottom { height: auto !important; padding: 12px 14px !important; flex-wrap: wrap; }
+    .interview-room-bottom-center { order: -1; flex-basis: 100%; }
+  }
 `;
 
 function InterviewRoom() {
@@ -49,12 +75,14 @@ function InterviewRoom() {
   const [error,            setError]            = useState("");
   const [videoStream,      setVideoStream]      = useState(null);
   const [isCameraOn,       setIsCameraOn]       = useState(true);
+  const [hasVideo,         setHasVideo]         = useState(false);
   const [isMicOn,          setIsMicOn]          = useState(true);
   const videoRef           = useRef(null);
   const [currentQuestion,  setCurrentQuestion]  = useState(null);
   const [isRecording,      setIsRecording]      = useState(false);
   const [isSubmitting,     setIsSubmitting]     = useState(false);
   const [timeElapsed,      setTimeElapsed]      = useState(0);
+  const [answerText,       setAnswerText]       = useState("");
   const timerIntervalRef   = useRef(null);
   const initializeRef      = useRef(false);
   const liveQuestionRef    = useRef(null);
@@ -63,6 +91,10 @@ function InterviewRoom() {
     mediaStream: videoStream
   });
   const { start: startLiveTranscription } = liveTranscription;
+
+  useEffect(() => {
+    setIsRecording(liveTranscription.status === "recording");
+  }, [liveTranscription.status]);
 
   /* ── Cleanup on unmount (master cleanup) ── */
   useEffect(() => {
@@ -105,13 +137,42 @@ function InterviewRoom() {
     initializeRef.current = true;
 
     const init = async () => {
+      let acquiredStream = null;
       try {
         setLoading(true);
         setError("");
         
         // Fetch interview data
         const interviewRes = await API.get(`/interviews/${interviewId}`);
-        setInterview(interviewRes.data);
+        let activeInterview = interviewRes.data;
+
+        if (activeInterview.status === "completed") {
+          navigate(`/interview-result/${interviewId}`, {
+            replace: true,
+            state: { interview: activeInterview }
+          });
+          return;
+        }
+
+        if (activeInterview.status === "paused") {
+          const resumeResponse = await API.post(`/interviews/${interviewId}/resume`);
+          activeInterview = resumeResponse.data;
+        } else if (activeInterview.status === "scheduled") {
+          await API.post(`/interviews/${interviewId}/ready`);
+          const startResponse = await API.post(`/interviews/${interviewId}/start`);
+          activeInterview = startResponse.data;
+        } else if (activeInterview.status === "ready") {
+          const startResponse = await API.post(`/interviews/${interviewId}/start`);
+          activeInterview = startResponse.data;
+        }
+
+        if (activeInterview.status !== "in-progress") {
+          throw new Error(
+            `This interview is currently ${activeInterview.status}. Return to the interview dashboard and try again.`
+          );
+        }
+
+        setInterview(activeInterview);
 
         // ✅ REQUEST USER MEDIA (Audio + Video)
         console.log("[Init] Requesting camera and microphone access...");
@@ -127,23 +188,22 @@ function InterviewRoom() {
           throw new Error("Camera access requires HTTPS or localhost. This is a browser security requirement.");
         }
         
-        let stream;
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-              width: { ideal: 1280 }, 
+          acquiredStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
               height: { ideal: 720 },
               facingMode: "user"
             },
-            audio: { 
-              echoCancellation: true, 
+            audio: {
+              echoCancellation: true,
               noiseSuppression: true,
               autoGainControl: true
             },
           });
         } catch (err) {
           console.error(`[Init] getUserMedia error - ${err.name}:`, err.message);
-          
+
           if (err.name === "NotAllowedError") {
             throw new Error("❌ Camera/Microphone permission denied. Please click the lock icon in your address bar and allow camera & microphone access.");
           } else if (err.name === "NotFoundError") {
@@ -158,19 +218,23 @@ function InterviewRoom() {
         }
 
         console.log("[Init] Stream obtained. Checking tracks...");
-        console.log(`  - Video tracks: ${stream.getVideoTracks().length}`);
-        console.log(`  - Audio tracks: ${stream.getAudioTracks().length}`);
+        console.log(`  - Video tracks: ${acquiredStream.getVideoTracks().length}`);
+        console.log(`  - Audio tracks: ${acquiredStream.getAudioTracks().length}`);
 
-        // Validate streams
-        if (stream.getVideoTracks().length === 0) {
-          throw new Error("No video track available from camera");
+        // Validate streams - audio is required, video is optional
+        if (acquiredStream.getAudioTracks().length === 0) {
+          throw new Error("No microphone detected. Please connect a microphone and refresh.");
         }
-        if (stream.getAudioTracks().length === 0) {
-          throw new Error("No audio track available from microphone");
+
+        // If video track is missing, continue with audio-only (camera optional)
+        const videoAvailable = acquiredStream.getVideoTracks().length > 0;
+        setHasVideo(videoAvailable);
+        if (!videoAvailable) {
+          console.warn("[Init] No video track available - continuing audio-only");
         }
 
         console.log("[Init] Setting video stream to ref...");
-        setVideoStream(stream);
+        setVideoStream(acquiredStream);
 
         // ✅ FETCH FIRST QUESTION
         const questionRes = await API.get(`/interviews/${interviewId}/question`);
@@ -180,7 +244,7 @@ function InterviewRoom() {
         // ✅ START TIMER
         let seconds = Math.max(
           0,
-          Math.floor((Date.now() - new Date(interviewRes.data.startTime).getTime()) / 1000)
+          Math.floor((Date.now() - new Date(activeInterview.startTime).getTime()) / 1000)
         );
         setTimeElapsed(seconds);
         timerIntervalRef.current = setInterval(() => {
@@ -195,6 +259,7 @@ function InterviewRoom() {
 
       } catch (err) {
         console.error("[Init] ❌ Initialization error:", err);
+        if (acquiredStream) stopAllMediaTracks(acquiredStream);
         initializeRef.current = false; // Allow retry
         
         if (err.name === "NotAllowedError") {
@@ -233,7 +298,7 @@ function InterviewRoom() {
       
       console.log("[Cleanup] ✅ Cleanup complete");
     };
-  }, [interviewId]);
+  }, [interviewId, navigate]);
 
   /* ── Attach stream to video element when both are ready ── */
   useEffect(() => {
@@ -377,18 +442,18 @@ function InterviewRoom() {
 
       await liveTranscription.stop();
 
-      const transcript = liveTranscription.transcript.trim();
+      const transcript = liveTranscription.transcript.trim() || answerText.trim();
       if (!transcript) {
-        console.warn("[Submit] No live transcript was recognized.");
-        setError("No speech was transcribed. Please speak into the microphone and try again.");
+        console.warn("[Submit] No transcript or typed answer was provided.");
+        setError("Add an answer by speaking or typing before continuing.");
         setIsSubmitting(false);
         liveQuestionRef.current = null;
-        try {
-          await liveTranscription.start();
-          setIsRecording(true);
-        } catch (e) {
-          console.error("[Submit] Failed to restart live transcription:", e);
-          setError(`Unable to restart transcription: ${e.message}`);
+        if (liveTranscription.status === "idle" || liveTranscription.status === "error") {
+          try {
+            await liveTranscription.start();
+          } catch (e) {
+            console.error("[Submit] Failed to restart live transcription:", e);
+          }
         }
         return; 
       }
@@ -424,6 +489,7 @@ function InterviewRoom() {
         liveQuestionRef.current = null;
         setIsRecording(false);
       }
+      setAnswerText("");
       
       console.log("[Submit] ✅ Answer submitted successfully");
       
@@ -559,11 +625,11 @@ function InterviewRoom() {
       <style>{GLOBAL_CSS}</style>
 
       {/* ══ TOP BAR ══ */}
-      <header style={c.topBar}>
+      <header style={c.topBar} className="interview-room-topbar">
         {/* Brand + info */}
         <div style={c.topLeft}>
           <div style={c.brand}>
-            <span style={c.brandText}>IX</span>
+            <span style={c.brandText}>GH</span>
           </div>
           <div style={c.topInfo}>
             <span style={c.topName}>{interview?.candidateName || "Candidate"}</span>
@@ -578,75 +644,77 @@ function InterviewRoom() {
         </div>
 
         {/* Status chip */}
-        <div style={c.statusChip}>
+        <div style={c.statusChip} className="ix-status-chip">
           <span style={c.statusDot} />
-          In Progress
+          Live interview
         </div>
       </header>
 
       {/* ══ MAIN LAYOUT ══ */}
-      <main style={c.main}>
+      <main style={c.main} className="interview-room-main">
 
         {/* ── LEFT PANEL ── */}
-        <section style={c.leftPanel}>
+        <section style={c.leftPanel} className="interview-room-left">
 
-          {/* Video */}
-          <div style={c.videoWrap}>
-            <video 
-              ref={videoRef} 
-              autoPlay={true}
-              playsInline={true}
-              muted={true}
-              style={c.video}
-              onLoadedMetadata={() => console.log("[Video] ✅ Metadata loaded - camera stream active")}
-              onCanPlay={() => console.log("[Video] ✅ Ready to play - camera is ON")}
-              onPlay={() => console.log("[Video] ✅ Video playing - camera feed visible")}
-              onError={(e) => {
-                console.error("[Video] ❌ Error:", e);
-                const errorCode = e.target.error?.code;
-                const errorMsg = {
-                  1: "MEDIA_ERR_ABORTED",
-                  2: "MEDIA_ERR_NETWORK",
-                  3: "MEDIA_ERR_DECODE",
-                  4: "MEDIA_ERR_SRC_NOT_SUPPORTED"
-                }[errorCode] || "Unknown error";
-                console.error(`[Video] Error code: ${errorCode} (${errorMsg})`);
-              }}
-              onStalled={() => console.warn("[Video] ⚠️ Video stalled - buffering...")}
-              onSuspend={() => console.warn("[Video] ⚠️ Media loading suspended")}
-            />
+          {/* Video (only when camera track exists) */}
+          {hasVideo && (
+            <div style={c.videoWrap}>
+              <video
+                ref={videoRef}
+                autoPlay={true}
+                playsInline={true}
+                muted={true}
+                style={c.video}
+                onLoadedMetadata={() => console.log("[Video] ✅ Metadata loaded - camera stream active")}
+                onCanPlay={() => console.log("[Video] ✅ Ready to play - camera is ON")}
+                onPlay={() => console.log("[Video] ✅ Video playing - camera feed visible")}
+                onError={(e) => {
+                  console.error("[Video] ❌ Error:", e);
+                  const errorCode = e.target.error?.code;
+                  const errorMsg = {
+                    1: "MEDIA_ERR_ABORTED",
+                    2: "MEDIA_ERR_NETWORK",
+                    3: "MEDIA_ERR_DECODE",
+                    4: "MEDIA_ERR_SRC_NOT_SUPPORTED"
+                  }[errorCode] || "Unknown error";
+                  console.error(`[Video] Error code: ${errorCode} (${errorMsg})`);
+                }}
+                onStalled={() => console.warn("[Video] ⚠️ Video stalled - buffering...")}
+                onSuspend={() => console.warn("[Video] ⚠️ Media loading suspended")}
+              />
 
-            {/* overlay badges */}
-            <div style={c.videoTopLeft}>
-              {isRecording && (
-                <div style={c.recBadge}>
-                  <span style={c.recDot} className="ix-pulse" />
-                  REC
+              {/* overlay badges */}
+              <div style={c.videoTopLeft}>
+                {isRecording && (
+                  <div style={c.recBadge}>
+                    <span style={c.recDot} className="ix-pulse" />
+                    Recording
+                  </div>
+                )}
+              </div>
+              <div style={c.videoTopRight}>
+                {!isCameraOn && <div style={c.camOffBadge}>Camera Off</div>}
+              </div>
+
+              {/* camera-off overlay */}
+              {!isCameraOn && (
+                <div style={c.camOffOverlay}>
+                  <VideoOff size={34} strokeWidth={1.7} style={c.camOffIcon} />
+                  <p style={c.camOffText}>Your camera is off</p>
+                </div>
+              )}
+
+              {/* mic-off indicator */}
+              {!isMicOn && (
+                <div style={c.micOffStrip}>
+                  <MicOff size={14} /> Microphone muted — your answer is not being recorded
                 </div>
               )}
             </div>
-            <div style={c.videoTopRight}>
-              {!isCameraOn && <div style={c.camOffBadge}>Camera Off</div>}
-            </div>
-
-            {/* camera-off overlay */}
-            {!isCameraOn && (
-              <div style={c.camOffOverlay}>
-                <div style={c.camOffIcon}>📷</div>
-                <p style={c.camOffText}>Camera is off</p>
-              </div>
-            )}
-
-            {/* mic-off indicator */}
-            {!isMicOn && (
-              <div style={c.micOffStrip}>
-                🔇 Microphone muted — your answer is not being recorded
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Question card */}
-          {currentQuestion && !error && (
+          {currentQuestion && (
             <div style={c.questionCard} className="ix-fade">
               <div style={c.questionMeta}>
                 <span style={c.questionTag}>
@@ -659,7 +727,7 @@ function InterviewRoom() {
               <p style={c.questionText}>{currentQuestion.questionText}</p>
               <div style={c.questionFooter}>
                 <div style={isRecording ? c.recStatus : c.recStatusPaused}>
-                  <span style={{ ...c.recStatusDot, background: isRecording ? "#f87171" : "#475569" }}
+                  <span style={{ ...c.recStatusDot, background: isRecording ? "#c84b42" : "#a0a0a0" }}
                     className={isRecording ? "ix-pulse" : ""} />
                   {isRecording ? "Recording your response" : "Recording paused"}
                 </div>
@@ -668,19 +736,37 @@ function InterviewRoom() {
             </div>
           )}
 
+          <div style={c.answerCard}>
+            <label htmlFor="typed-answer" style={c.answerLabel}>
+              Answer workspace
+              <span style={c.answerOptional}>Use this if live transcription is unavailable</span>
+            </label>
+            <textarea
+              id="typed-answer"
+              value={answerText}
+              onChange={(event) => setAnswerText(event.target.value)}
+              placeholder="Type your answer here, or speak while transcription is connected..."
+              style={c.answerInput}
+              rows={4}
+              disabled={isSubmitting}
+            />
+          </div>
+
           {/* Error */}
           {error && (
             <div style={c.errorCard}>
-              <span style={c.errorIcon}>⚠</span>
+              <AlertTriangle size={17} style={c.errorIcon} />
               <span>{error}</span>
             </div>
           )}
         </section>
 
         {/* ── RIGHT PANEL ── */}
-        <aside style={c.rightPanel}>
+        <aside style={c.rightPanel} className="interview-room-side">
 
-          <LiveTranscript transcription={liveTranscription} />
+          <div className="interview-room-transcript">
+            <LiveTranscript transcription={liveTranscription} />
+          </div>
 
           {/* Candidate card */}
           <div style={c.sideCard}>
@@ -697,7 +783,7 @@ function InterviewRoom() {
             <div style={c.statGrid}>
               {[
                 { label: "Session", value: `#${interviewId?.slice(-6) || "—"}` },
-                { label: "Status",  value: "Live",   accent: "#4ade80" },
+                { label: "Status",  value: "Live",   accent: "#1f5e3b" },
                 { label: "Elapsed", value: formatTime(timeElapsed) },
                 { label: "Q No.",   value: currentQuestion ? `${currentQuestion.questionId + 1}` : "—" },
               ].map(({ label, value, accent }) => (
@@ -711,7 +797,7 @@ function InterviewRoom() {
 
           {/* Instructions */}
           <div style={c.sideCard}>
-            <h3 style={c.sideTitle}>Instructions</h3>
+            <h3 style={c.sideTitle}><CircleHelp size={15} /> Interview guide</h3>
             <div style={c.instrList}>
               {[
                 ["🎯", "Listen carefully to each question"],
@@ -730,7 +816,7 @@ function InterviewRoom() {
 
           {/* Shortcuts */}
           <div style={c.sideCard}>
-            <h3 style={c.sideTitle}>Keyboard Shortcuts</h3>
+            <h3 style={c.sideTitle}><ShieldCheck size={15} /> Session controls</h3>
             <div style={c.shortcutList}>
               {[
                 ["M", "Mute / Unmute"],
@@ -750,40 +836,42 @@ function InterviewRoom() {
       </main>
 
       {/* ══ BOTTOM CONTROL BAR ══ */}
-      <footer style={c.bottomBar}>
+      <footer style={c.bottomBar} className="interview-room-bottom">
 
         {/* Left: Media toggles */}
         <div style={c.ctrlGroup}>
           <CtrlBtn
             active={isMicOn}
             onClick={toggleMicrophone}
-            activeIcon="🎤"
-            inactiveIcon="🔇"
+            activeIcon={<Mic size={18} />}
+            inactiveIcon={<MicOff size={18} />}
             activeLabel="Mic On"
             inactiveLabel="Muted"
             title={isMicOn ? "Mute (M)" : "Unmute (M)"}
           />
-          <CtrlBtn
-            active={isCameraOn}
-            onClick={toggleCamera}
-            activeIcon="📹"
-            inactiveIcon="🚫"
-            activeLabel="Cam On"
-            inactiveLabel="Cam Off"
-            title={isCameraOn ? "Turn off camera (V)" : "Turn on camera (V)"}
-          />
+          {hasVideo && (
+            <CtrlBtn
+              active={isCameraOn}
+              onClick={toggleCamera}
+              activeIcon={<Video size={18} />}
+              inactiveIcon={<VideoOff size={18} />}
+              activeLabel="Cam On"
+              inactiveLabel="Cam Off"
+              title={isCameraOn ? "Turn off camera (V)" : "Turn on camera (V)"}
+            />
+          )}
         </div>
 
         {/* Center: Submit */}
-        <div style={c.ctrlCenter}>
+        <div style={c.ctrlCenter} className="interview-room-bottom-center">
           <button
             className="ix-submit-btn"
             style={{
               ...c.submitBtn,
-              opacity: isSubmitting || !isRecording ? 0.55 : 1,
+              opacity: isSubmitting || (!isRecording && !answerText.trim()) ? 0.55 : 1,
             }}
             onClick={submitAnswer}
-            disabled={isSubmitting || !isRecording}
+            disabled={isSubmitting || (!isRecording && !answerText.trim())}
             title="Submit your response (Enter)"
           >
             {isSubmitting ? (
@@ -792,7 +880,7 @@ function InterviewRoom() {
                 Submitting…
               </>
             ) : (
-              <>✓ &nbsp;Stop Answer &amp; Next</>
+              <><Send size={16} /> {isRecording ? "Finish answer" : "Submit answer"}</>
             )}
           </button>
         </div>
@@ -806,7 +894,7 @@ function InterviewRoom() {
             disabled={isSubmitting}
             title="Pause interview"
           >
-            Pause
+            <Pause size={15} /> Pause
           </button>
           <button
             className="ix-end-btn"
@@ -815,7 +903,7 @@ function InterviewRoom() {
             disabled={isSubmitting}
             title="End interview (Esc)"
           >
-            End Interview
+            <Square size={14} /> End interview
           </button>
         </div>
       </footer>
@@ -832,12 +920,12 @@ function CtrlBtn({ active, onClick, activeIcon, inactiveIcon, activeLabel, inact
       title={title}
       style={{
         ...c.ctrlBtn,
-        background: active ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)",
-        border:     `1.5px solid ${active ? "#4ade8055" : "#f8717155"}`,
-        color:      active ? "#4ade80" : "#f87171",
+        background: active ? "#e8f0eb" : "#fff5f4",
+        border:     `1.5px solid ${active ? "#b9d1c0" : "#efb4ae"}`,
+        color:      active ? "#1f5e3b" : "#a12f26",
       }}
     >
-      <span style={{ fontSize: 20 }}>{active ? activeIcon : inactiveIcon}</span>
+      <span style={{ display: "flex" }}>{active ? activeIcon : inactiveIcon}</span>
       <span style={c.ctrlLabel}>{active ? activeLabel : inactiveLabel}</span>
     </button>
   );
@@ -847,8 +935,8 @@ function CtrlBtn({ active, onClick, activeIcon, inactiveIcon, activeLabel, inact
 const c = {
   root: {
     height: "100vh",
-    background: "#080c14",
-    color: "#e8eaf0",
+    background: "#f8f8f6",
+    color: "#111111",
     display: "flex",
     flexDirection: "column",
     fontFamily: "'DM Sans', sans-serif",
@@ -859,7 +947,7 @@ const c = {
   /* loading */
   loadWrap: {
     flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-    background: "radial-gradient(ellipse at 50% 40%, #11193a 0%, #080c14 70%)",
+    background: "#f8f8f6",
   },
   loadInner: {
     display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
@@ -867,30 +955,30 @@ const c = {
   },
   spinRing: {
     width: 56, height: 56,
-    border: "3px solid #1e293b",
-    borderTop: "3px solid #6e54f6",
+    border: "3px solid #dfe9e2",
+    borderTop: "3px solid #1f5e3b",
     borderRadius: "50%",
     marginBottom: 8,
   },
   loadLogo: {
     position: "absolute",
     fontFamily: "'Syne', sans-serif",
-    fontWeight: 800, fontSize: 14, color: "#6e54f6",
+    fontWeight: 800, fontSize: 14, color: "#1f5e3b",
     marginTop: -2,
   },
-  loadTitle: { fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 700, color: "#f1f5f9" },
-  loadSub:   { fontSize: 13, color: "#64748b", marginTop: -4 },
+  loadTitle: { fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 700, color: "#111111" },
+  loadSub:   { fontSize: 13, color: "#5e5e5e", marginTop: -4 },
   loadDots:  { display: "flex", flexDirection: "column", gap: 8, marginTop: 12, alignItems: "flex-start" },
-  loadStep:  { display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#94a3b8" },
-  loadStepDot: { width: 6, height: 6, borderRadius: "50%", background: "#6e54f6", display: "inline-block" },
+  loadStep:  { display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#5e5e5e" },
+  loadStepDot: { width: 6, height: 6, borderRadius: "50%", background: "#1f5e3b", display: "inline-block" },
 
   /* top bar */
   topBar: {
     height: 64,
     padding: "0 24px",
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    borderBottom: "1px solid #111827",
-    background: "rgba(8,12,20,0.95)",
+    borderBottom: "1px solid #e5e5e5",
+    background: "rgba(255,255,255,0.96)",
     backdropFilter: "blur(12px)",
     flexShrink: 0,
     gap: 16,
@@ -898,42 +986,42 @@ const c = {
   topLeft:   { display: "flex", alignItems: "center", gap: 14 },
   brand: {
     width: 36, height: 36, borderRadius: 10,
-    background: "linear-gradient(135deg,#6e54f6,#3b82f6)",
+    background: "#1f5e3b",
     display: "flex", alignItems: "center", justifyContent: "center",
     flexShrink: 0,
   },
   brandText: { fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 13, color: "#fff" },
   topInfo:   { display: "flex", flexDirection: "column", gap: 1 },
-  topName:   { fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: "#f1f5f9", lineHeight: 1.2 },
-  topRole:   { fontSize: 11, color: "#475569", letterSpacing: "0.3px" },
+  topName:   { fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: "#111111", lineHeight: 1.2 },
+  topRole:   { fontSize: 11, color: "#5e5e5e", letterSpacing: "0.3px" },
   timerPill: {
-    background: "#0f172a",
-    border: "1px solid #1e293b",
+    background: "#f2f1ec",
+    border: "1px solid #e5e5e5",
     borderRadius: 100,
     padding: "6px 16px",
     display: "flex", alignItems: "center", gap: 8,
     transition: "border-color 0.3s, background 0.3s",
   },
   timerWarn: { borderColor: "#dc2626", background: "rgba(220,38,38,0.08)" },
-  timerDot:  { width: 8, height: 8, borderRadius: "50%", background: "#f87171", display: "inline-block" },
-  timerText: { fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 500, color: "#f1f5f9", letterSpacing: "1px" },
+  timerDot:  { width: 8, height: 8, borderRadius: "50%", background: "#1f5e3b", display: "inline-block" },
+  timerText: { fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 500, color: "#111111", letterSpacing: "1px" },
   statusChip: {
     display: "flex", alignItems: "center", gap: 6,
-    background: "rgba(74,222,128,0.08)",
-    border: "1px solid rgba(74,222,128,0.25)",
+    background: "#e8f0eb",
+    border: "1px solid #b9d1c0",
     borderRadius: 100,
     padding: "5px 14px",
-    fontSize: 12, fontWeight: 600, color: "#4ade80",
+    fontSize: 12, fontWeight: 600, color: "#1f5e3b",
     letterSpacing: "0.2px",
   },
-  statusDot: { width: 7, height: 7, borderRadius: "50%", background: "#4ade80", display: "inline-block" },
+  statusDot: { width: 7, height: 7, borderRadius: "50%", background: "#3f9b62", display: "inline-block" },
 
   /* main */
   main: {
     flex: 1,
     display: "flex",
-    gap: 14,
-    padding: "14px 16px",
+    gap: 20,
+    padding: "22px 28px",
     overflow: "hidden",
     minHeight: 0,
   },
@@ -946,9 +1034,9 @@ const c = {
   },
   videoWrap: {
     flex: 1,
-    background: "#0d1117",
-    borderRadius: 16,
-    border: "1px solid #1a2236",
+    background: "#17211a",
+    borderRadius: 18,
+    border: "1px solid #d9e3dc",
     overflow: "hidden",
     position: "relative",
     minHeight: 0,
@@ -962,14 +1050,14 @@ const c = {
     border: "1px solid rgba(248,113,113,0.3)",
     borderRadius: 100, padding: "5px 12px",
     display: "flex", alignItems: "center", gap: 6,
-    fontSize: 11, fontWeight: 700, color: "#f87171", letterSpacing: "1.5px",
+    fontSize: 11, fontWeight: 700, color: "#f5c1bd", letterSpacing: "1.5px",
   },
-  recDot: { width: 7, height: 7, borderRadius: "50%", background: "#f87171", display: "inline-block" },
+  recDot: { width: 7, height: 7, borderRadius: "50%", background: "#e56b61", display: "inline-block" },
   camOffBadge: {
     background: "rgba(10,14,22,0.82)", backdropFilter: "blur(6px)",
     border: "1px solid rgba(248,113,113,0.25)",
     borderRadius: 100, padding: "5px 12px",
-    fontSize: 11, fontWeight: 600, color: "#f87171",
+    fontSize: 11, fontWeight: 600, color: "#f5c1bd",
   },
   camOffOverlay: {
     position: "absolute", inset: 0,
@@ -977,62 +1065,100 @@ const c = {
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
   },
   camOffIcon: { fontSize: 40, opacity: 0.5 },
-  camOffText: { fontSize: 13, color: "#475569" },
+  camOffText: { fontSize: 13, color: "#d1ddd4" },
   micOffStrip: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    background: "rgba(220,38,38,0.85)", backdropFilter: "blur(4px)",
+    background: "rgba(185,28,28,0.9)", backdropFilter: "blur(4px)",
     padding: "8px 16px", fontSize: 12, fontWeight: 600, color: "#fff",
     textAlign: "center",
   },
 
   /* question card */
   questionCard: {
-    background: "#0d1117",
-    border: "1px solid #1a2236",
+    background: "#ffffff",
+    border: "1px solid #dfe9e2",
+    borderLeft: "4px solid #1f5e3b",
     borderRadius: 14,
-    padding: "18px 20px",
+    padding: "20px 22px",
     flexShrink: 0,
   },
   questionMeta: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 },
   questionTag: {
-    background: "rgba(110,84,246,0.15)",
-    border: "1px solid rgba(110,84,246,0.3)",
-    color: "#a78bfa",
+    background: "#e8f0eb",
+    border: "1px solid #b9d1c0",
+    color: "#1f5e3b",
     borderRadius: 100, padding: "3px 10px",
     fontSize: 11, fontWeight: 700, letterSpacing: "0.5px",
   },
-  questionType: { fontSize: 11, color: "#334155", fontWeight: 500 },
+  questionType: { fontSize: 11, color: "#5e5e5e", fontWeight: 500 },
   questionText: {
-    fontSize: 15, fontWeight: 600, color: "#e2e8f0",
-    lineHeight: 1.65, marginBottom: 14,
+    fontSize: 18, fontWeight: 700, color: "#111111",
+    lineHeight: 1.5, marginBottom: 16,
   },
   questionFooter: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
-  recStatus: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#f87171" },
-  recStatusPaused: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#475569" },
+  recStatus: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#1f5e3b" },
+  recStatusPaused: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#8a8a8a" },
   recStatusDot: { width: 7, height: 7, borderRadius: "50%", display: "inline-block" },
-  questionHint: { fontSize: 11, color: "#334155" },
+  questionHint: { fontSize: 11, color: "#777777" },
+  answerCard: {
+    background: "#ffffff",
+    border: "1px solid #e5e5e5",
+    borderRadius: 14,
+    padding: "16px 20px",
+    flexShrink: 0,
+  },
+  answerLabel: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 12,
+    color: "#111111",
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 9,
+  },
+  answerOptional: {
+    color: "#777777",
+    fontSize: 11,
+    fontWeight: 400,
+    textAlign: "right",
+  },
+  answerInput: {
+    width: "100%",
+    resize: "vertical",
+    minHeight: 92,
+    background: "#fbfbfa",
+    border: "1px solid #d8d8d4",
+    borderRadius: 10,
+    color: "#111111",
+    fontFamily: "inherit",
+    fontSize: 13,
+    lineHeight: 1.6,
+    outline: "none",
+    padding: "11px 12px",
+  },
 
   /* error */
   errorCard: {
-    background: "rgba(127,29,29,0.4)",
-    border: "1px solid rgba(220,38,38,0.4)",
+    background: "#fff5f4",
+    border: "1px solid #efb4ae",
     borderRadius: 12, padding: "12px 16px",
     display: "flex", alignItems: "center", gap: 10,
-    fontSize: 13, color: "#fca5a5",
+    fontSize: 13, color: "#a12f26",
     flexShrink: 0,
   },
   errorIcon: { fontSize: 16 },
 
   /* right panel */
   rightPanel: {
-    width: 280,
+    width: 330,
     flexShrink: 0,
     display: "flex", flexDirection: "column", gap: 12,
     overflowY: "auto",
   },
   sideCard: {
-    background: "#0d1117",
-    border: "1px solid #1a2236",
+    background: "#ffffff",
+    border: "1px solid #e5e5e5",
     borderRadius: 14,
     padding: "16px 18px",
     flexShrink: 0,
@@ -1040,52 +1166,53 @@ const c = {
   sideCardHeader: { display: "flex", alignItems: "center", gap: 12 },
   candidateAvatar: {
     width: 40, height: 40, borderRadius: 12,
-    background: "linear-gradient(135deg,#6e54f6,#3b82f6)",
+    background: "#1f5e3b",
     display: "flex", alignItems: "center", justifyContent: "center",
     fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: "#fff",
     flexShrink: 0,
   },
-  candidateName: { fontWeight: 600, fontSize: 13, color: "#e2e8f0" },
-  candidateRole: { fontSize: 11, color: "#475569", marginTop: 2 },
-  divider: { height: 1, background: "#111827", margin: "14px 0" },
+  candidateName: { fontWeight: 700, fontSize: 13, color: "#111111" },
+  candidateRole: { fontSize: 11, color: "#5e5e5e", marginTop: 2 },
+  divider: { height: 1, background: "#e5e5e5", margin: "14px 0" },
   statGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
   statItem: { display: "flex", flexDirection: "column", gap: 3 },
-  statLabel: { fontSize: 10, color: "#334155", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.6px" },
-  statValue: { fontSize: 13, fontWeight: 700, color: "#94a3b8", fontFamily: "'DM Mono', monospace" },
+  statLabel: { fontSize: 10, color: "#777777", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.6px" },
+  statValue: { fontSize: 13, fontWeight: 700, color: "#1f5e3b", fontFamily: "'DM Mono', monospace" },
 
   sideTitle: {
     fontFamily: "'Syne', sans-serif",
-    fontSize: 11, fontWeight: 700, color: "#334155",
+    display: "flex", alignItems: "center", gap: 6,
+    fontSize: 11, fontWeight: 700, color: "#1f5e3b",
     textTransform: "uppercase", letterSpacing: "0.8px",
     marginBottom: 12,
   },
   instrList: { display: "flex", flexDirection: "column", gap: 9 },
   instrRow:  { display: "flex", alignItems: "flex-start", gap: 10 },
   instrIcon: { fontSize: 14, flexShrink: 0, lineHeight: 1.5 },
-  instrText: { fontSize: 12, color: "#64748b", lineHeight: 1.5 },
+  instrText: { fontSize: 12, color: "#5e5e5e", lineHeight: 1.5 },
 
   shortcutList: { display: "flex", flexDirection: "column", gap: 8 },
   shortcutRow:  { display: "flex", alignItems: "center", gap: 10 },
   kbd: {
-    background: "#111827",
-    border: "1px solid #1e293b",
-    borderBottom: "2px solid #1e293b",
+    background: "#f2f1ec",
+    border: "1px solid #d8d8d4",
+    borderBottom: "2px solid #c9c9c4",
     borderRadius: 6,
     padding: "3px 8px",
     fontFamily: "'DM Mono', monospace",
-    fontSize: 11, fontWeight: 500, color: "#94a3b8",
+    fontSize: 11, fontWeight: 500, color: "#5e5e5e",
     minWidth: 28, textAlign: "center",
     transition: "background 0.2s",
   },
-  shortcutLabel: { fontSize: 12, color: "#475569" },
+  shortcutLabel: { fontSize: 12, color: "#5e5e5e" },
 
   /* bottom bar */
   bottomBar: {
     height: 76,
     padding: "0 24px",
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    borderTop: "1px solid #111827",
-    background: "rgba(8,12,20,0.97)",
+    borderTop: "1px solid #e5e5e5",
+    background: "rgba(255,255,255,0.98)",
     backdropFilter: "blur(12px)",
     flexShrink: 0,
     gap: 16,
@@ -1102,7 +1229,7 @@ const c = {
   ctrlLabel: { fontSize: 10, fontWeight: 600, letterSpacing: "0.3px" },
   ctrlCenter: { flex: 1, display: "flex", justifyContent: "center" },
   submitBtn: {
-    background: "linear-gradient(135deg,#6e54f6,#3b82f6)",
+    background: "#1f5e3b",
     color: "#fff",
     border: "none",
     borderRadius: 12,
@@ -1110,7 +1237,7 @@ const c = {
     fontSize: 14, fontWeight: 700,
     cursor: "pointer",
     display: "flex", alignItems: "center", gap: 8,
-    boxShadow: "0 4px 20px rgba(110,84,246,0.3)",
+    boxShadow: "0 4px 20px rgba(31,94,59,0.2)",
     transition: "all 0.2s",
     fontFamily: "inherit",
     letterSpacing: "0.2px",
@@ -1125,8 +1252,8 @@ const c = {
   ctrlRight: { display: "flex", justifyContent: "flex-end" },
   endBtn: {
     background: "transparent",
-    border: "1.5px solid rgba(220,38,38,0.5)",
-    color: "#f87171",
+    border: "1.5px solid #b9d1c0",
+    color: "#1f5e3b",
     borderRadius: 12,
     padding: "11px 22px",
     fontSize: 13, fontWeight: 600,

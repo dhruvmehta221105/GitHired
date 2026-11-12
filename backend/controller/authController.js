@@ -18,13 +18,16 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    const existingUsers = await User.countDocuments();
+    const isFirstUser = existingUsers === 0;
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       password: hashedPassword,
-      role: "user", // Always register as user, not admin
+      role: isFirstUser ? "admin" : "user",
     });
 
     return res.status(201).json({

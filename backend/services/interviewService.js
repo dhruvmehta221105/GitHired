@@ -237,34 +237,13 @@ const submitAnswer = async (interviewId, answer, user) => {
       },
       $inc: { currentQuestionIndex: 1 },
       $unset: { activeQuestion: 1 },
-      $set: { status: "processing" }
+      $set: { status: "in-progress" }
     },
     { new: true }
   );
 
   if (!updated) {
     throw new ServiceError("Answer was already submitted or interview state changed", 409);
-  }
-
-  try {
-    const processed = await Interview.findOneAndUpdate(
-      { _id: interviewId, status: "processing", currentQuestionIndex: answer.questionId + 1 },
-      { $set: { status: "in-progress" } },
-      { new: true }
-    );
-    if (!processed) {
-      await Interview.updateOne(
-        { _id: interviewId, status: "processing", currentQuestionIndex: answer.questionId + 1 },
-        { $set: { status: "in-progress" } }
-      );
-      throw new ServiceError("Interview processing state changed", 409);
-    }
-  } catch (error) {
-    await Interview.updateOne(
-      { _id: interviewId, status: "processing", currentQuestionIndex: answer.questionId + 1 },
-      { $set: { status: "in-progress" } }
-    );
-    throw error;
   }
 
   return {

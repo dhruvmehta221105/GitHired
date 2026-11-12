@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
 const COLORS = {
-  accent: "#6e54f6",
-  muted: "#cbd5e1"
+  accent: "#1f5e3b",
+  muted: "#c9d8cd"
 };
 
 export default function AudioVisualizer({ stream, active = false, height = 56 }) {

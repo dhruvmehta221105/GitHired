@@ -10,7 +10,7 @@ const segmentKey = (segment, text) => {
   const identity = segment.id ?? segment.uid ?? segment.segment_id;
   if (identity !== undefined) return `id:${identity}`;
   if (segment.start !== undefined || segment.end !== undefined) {
-    return `time:${segment.start ?? ""}:${segment.end ?? ""}:${text}`;
+    return `time:${segment.start ?? ""}:${segment.end ?? ""}`;
   }
   return `text:${text.toLowerCase()}`;
 };
@@ -33,6 +33,11 @@ const appendWithoutOverlap = (current, next) => {
   if (!currentWords.length) return nextWords.join(" ");
   if (!nextWords.length) return currentWords.join(" ");
 
+  const currentText = currentWords.join(" ").toLowerCase();
+  const nextText = nextWords.join(" ").toLowerCase();
+  if (currentText.includes(nextText)) return currentWords.join(" ");
+  if (nextText.includes(currentText)) return nextWords.join(" ");
+
   const maxOverlap = Math.min(currentWords.length, nextWords.length);
   for (let length = maxOverlap; length > 0; length -= 1) {
     const suffix = currentWords.slice(-length).join(" ").toLowerCase();
@@ -44,10 +49,15 @@ const appendWithoutOverlap = (current, next) => {
   return [...currentWords, ...nextWords].join(" ");
 };
 
+const replaceByKey = (existing, incoming) => {
+  const segments = new Map(existing.map((segment) => [segment.key, segment]));
+  incoming.forEach((segment) => segments.set(segment.key, segment));
+  return [...segments.values()];
+};
+
 export const mergeTranscriptSegments = (completedSegments, provisionalSegments, incomingSegments) => {
-  const completed = [...completedSegments];
+  const completed = [];
   const provisional = [];
-  const incomingKeys = new Set();
 
   for (const rawSegment of incomingSegments || []) {
     const text = normalizeText(rawSegment.text);
@@ -57,16 +67,13 @@ export const mergeTranscriptSegments = (completedSegments, provisionalSegments, 
       completed.push(segment);
     } else {
       provisional.push(segment);
-      incomingKeys.add(segment.key);
     }
   }
 
-  for (const segment of provisionalSegments) {
-    if (!incomingKeys.has(segment.key)) provisional.push(segment);
-  }
-
-  const uniqueCompleted = dedupeSegments(completed);
-  const uniqueProvisional = dedupeSegments(provisional);
+  const uniqueCompleted = dedupeSegments(replaceByKey(completedSegments, completed));
+  const uniqueProvisional = incomingSegments?.length
+    ? dedupeSegments(provisional)
+    : dedupeSegments(provisionalSegments);
   const completedText = uniqueCompleted.reduce(
     (text, segment) => appendWithoutOverlap(text, segment.text),
     ""

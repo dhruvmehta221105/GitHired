@@ -56,7 +56,6 @@ flowchart TD
 
 ## 🔄 Interview Workflow
 
-<<<<<<< HEAD
 ```mermaid
 flowchart TD
     A[Start Interview] --> B[Configure Interview]
@@ -71,12 +70,6 @@ flowchart TD
     I --> J[Save Interview Results]
     J --> K[Performance Dashboard]
 ```
-=======
-Local storage integration (temporary frontend storage)
-------------------------------------------------------------------
-Backend
-REST API for feedback submission
->>>>>>> 19e0021 (Integrate ScribeCrate real-time transcription)
 
 ## 📊 Evaluation Framework
 
@@ -96,56 +89,18 @@ flowchart TD
     G --> H[Improvement Recommendations]
 ```
 
-<<<<<<< HEAD
 ## 🛠️ Tech Stack
-=======
-Role-based access control
-------------------------------------------
-## Local transcription setup
-
-GitHired uses [ScribeCrate Live](https://github.com/hwdsl2/scribecrate-live) for live,
-self-hosted Whisper transcription. Start the Docker service with its WebSocket endpoint
-on `localhost:9090` and REST endpoint on `localhost:8000`.
-
-Configure the backend using an uncommitted `backend/.env` file:
-
-```env
-SCRIBECRATE_WS_URL=ws://localhost:9090
-SCRIBECRATE_REST_URL=http://localhost:8000
-SCRIBECRATE_API_KEY=replace-with-your-server-key
-SCRIBECRATE_MODEL=base
-SCRIBECRATE_LANGUAGE=en
-```
-
-Never commit `backend/.env` or paste API keys into source files. The browser connects
-only to GitHired's authenticated WebSocket proxy; the ScribeCrate key stays in the
-backend environment.
-
-Install dependencies and run the applications:
-
-```bash
-npm install
-cd backend && npm install && npm start
-cd frontend && npm install && npm run dev
-```
-
-The existing `/api/whisper/transcribe` endpoint remains as a compatibility route for
-uploaded files, but it now delegates to ScribeCrate's OpenAI-compatible REST API.
-
-Tech Stack
-Frontend
->>>>>>> 19e0021 (Integrate ScribeCrate real-time transcription)
 
 | Layer            | Technologies                            |
 | ---------------- | --------------------------------------- |
 | Frontend         | React 18, Vite, React Router DOM, Axios |
 | Backend          | Node.js, Express.js                     |
 | Database         | MongoDB, Mongoose                       |
-| AI Integration   | OpenAI API                              |
-| Voice Processing | Speech-to-Text / Whisper                |
+| AI Integration   | OpenAI API / OpenRouter                 |
+| Voice Processing | Speech-to-Text / ScribeCrate (WebSocket) |
 | Authentication   | JWT                                     |
-| Styling          | Custom CSS                              |
-| API Architecture | REST API                                |
+| Styling          | Custom CSS / Tailwind CSS               |
+| API Architecture | REST API + WebSocket                    |
 
 ## 📂 Project Structure
 
@@ -153,34 +108,43 @@ Frontend
 GitHired/
 ├── frontend/
 │   └── src/
+│       ├── audio/
+│       │   ├── livePcmCapture.js
+│       │   ├── pcmUtils.js
+│       │   ├── transcriptSegments.js
+│       │   └── workers/
+│       │       └── audioProcessor.js
 │       ├── components/
-│       ├── pages/
-│       ├── services/
 │       ├── hooks/
-│       └── utils/
+│       │   └── useLiveTranscription.js
+│       ├── context/
+│       ├── pages/
+│       ├── utils/
+│       └── api.js
 ├── backend/
-│   ├── controllers/
+│   ├── config/
+│   ├── controller/
+│   ├── middleware/
 │   ├── models/
 │   ├── routes/
-│   ├── middleware/
 │   ├── services/
-│   └── config/
-└── README.md
+│   │   └── transcription/
+│   ├── websocket/
+│   ├── utils/
+│   ├── validators/
+│   ├── uploads/
+│   └── test/
+├── README.md
 ```
-
-*The structure above is illustrative. Adjust it to match your actual repository.*
 
 ## ⚡ Getting Started
 
-<<<<<<< HEAD
 ### Prerequisites
 
 * Node.js and npm
 * MongoDB instance
-* OpenAI API key, if using OpenAI-powered features
-=======
-Node.js
->>>>>>> 19e0021 (Integrate ScribeCrate real-time transcription)
+* OpenAI API key (or OpenRouter key) for AI-powered features
+* ScribeCrate Live WebSocket service (for live transcription)
 
 ### 1. Clone the Repository
 
@@ -209,8 +173,6 @@ npm install
 npm run dev
 ```
 
-Ensure both development servers are configured to communicate with each other.
-
 ### 4. Configure Environment Variables
 
 Create a `.env` file in the backend directory:
@@ -219,50 +181,48 @@ Create a `.env` file in the backend directory:
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_secure_jwt_secret
-OPENAI_API_KEY=your_openai_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_URL=https://openrouter.ai/api/v1/chat/completions
+OPENROUTER_MODEL=mistralai/mixtral-8x7b-instruct
+
+# ScribeCrate live transcription (required for voice interviews)
+SCRIBECRATE_WS_URL=ws://localhost:9090
+SCRIBECRATE_REST_URL=http://localhost:8000
+SCRIBECRATE_API_KEY=replace-with-your-server-key
+SCRIBECRATE_MODEL=base
+SCRIBECRATE_LANGUAGE=en
+
+# Email (optional, for newsletter welcome emails)
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
 ```
 
-Add any additional environment variables required by your implementation. Never commit API keys, database credentials, or other secrets to version control.
+Never commit `backend/.env` or paste API keys into source files.
 
-## 🛣️ Development Roadmap
+### 5. Run the Applications
 
-* [x] Frontend interview interface
-* [x] Feedback interface
-* [ ] Complete AI interview orchestration
-* [ ] Context-aware follow-up questions
-* [ ] Voice interview integration
-* [ ] Persistent interview history
-* [ ] Performance analytics dashboard
-* [ ] Production deployment
+```bash
+# Root (runs both backend and frontend concurrently)
+npm start
 
-*Update the checklist as features are implemented and tested.*
-
-## 🎯 Core AI Pipeline
-
-```text
-Interview Configuration
-         ↓
-Question Generation
-         ↓
-Candidate Response
-         ↓
-Response Processing
-         ↓
-AI Evaluation
-         ↓
-Scoring & Feedback
-         ↓
-Performance Tracking
+# Or individually:
+cd backend && npm start
+cd frontend && npm run dev
 ```
 
-## 🔮 Future Enhancements
+## 🔐 Authentication
 
-* Personalized interview difficulty
-* Role-specific interview preparation
-* Detailed performance analytics
-* Interview session summaries
-* Improved speech recognition
-* Personalized learning recommendations
+* The first registered user is automatically assigned the `admin` role
+* Subsequent users register as `user`
+* Admin-only routes: `/add-feedback`, admin user management
+* All other protected routes require any authenticated user
+* JWT tokens expire after 30 days
+
+## 🎤 Voice Transcription
+
+GitHired uses [ScribeCrate Live](https://github.com/hwdsl2/scribecrate-live) for live, self-hosted Whisper transcription via WebSocket. Start the Docker service with its WebSocket endpoint on `localhost:9090` and REST endpoint on `localhost:8000`.
+
+If ScribeCrate is unavailable, interviews can still proceed using typed answers — live transcription is optional.
 
 ## 📜 License
 
