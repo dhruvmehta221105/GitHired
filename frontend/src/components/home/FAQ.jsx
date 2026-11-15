@@ -33,7 +33,7 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState(0);
 
   return (
-    <section className="py-24 lg:py-32 bg-bg-secondary">
+    <section className="py-16 lg:py-24 bg-bg-secondary">
       <div className="max-w-[720px] mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
