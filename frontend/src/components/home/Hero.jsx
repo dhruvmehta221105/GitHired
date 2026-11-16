@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight, TrendingUp, FileText, Calendar, BarChart3, Clock, Star, CheckCircle2 } from 'lucide-react';
@@ -10,6 +11,36 @@ const fadeUp = {
     transition: { duration: 0.5, delay: i * 0.1, ease: [0.25, 0.46, 0.45, 0.94] },
   }),
 };
+
+const avatars = [
+  { name: 'Mark', src: 'https://assets.watermelon.sh/wm_ben.png' },
+  { name: 'Olivia', src: 'https://assets.watermelon.sh/wm_olivia.png' },
+  { name: 'Josh', src: 'https://assets.watermelon.sh/wm_josh.png' },
+  { name: 'Emma', src: 'https://assets.watermelon.sh/wm_emma.png' },
+];
+
+function Avatar({ name, src }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = name
+    .split(/\s+/)
+    .map((word) => word.slice(0, 1))
+    .join('');
+
+  return (
+    <div className="w-8 h-8 rounded-full border-2 border-white bg-accent/10 flex items-center justify-center overflow-hidden text-[11px] font-bold text-accent">
+      {!imageFailed ? (
+        <img
+          src={src}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+}
 
 function DashboardMockup() {
   return (
@@ -176,14 +207,12 @@ export default function Hero() {
               className="flex items-center gap-4 mt-8"
             >
               <div className="flex -space-x-2">
-                {['A', 'S', 'R', 'M'].map((letter, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full border-2 border-white bg-accent/10 flex items-center justify-center text-[11px] font-bold text-accent"
-                  >
-                    {letter}
-                  </div>
+                {avatars.map((avatar) => (
+                  <Avatar key={avatar.name} {...avatar} />
                 ))}
+                <div className="w-8 h-8 rounded-full border-2 border-white bg-accent-light flex items-center justify-center text-[11px] font-bold text-accent">
+                  +6
+                </div>
               </div>
               <div>
                 <div className="flex items-center gap-0.5">
