@@ -7,6 +7,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,6 +32,12 @@ export default function Navbar() {
     setProfileOpen(false);
     navigate('/');
   };
+
+  const profileAvatar = user?.avatar || (
+    user?.gender?.toLowerCase() === 'female'
+      ? 'https://assets.watermelon.sh/wm_emma.png'
+      : 'https://assets.watermelon.sh/wm_josh.png'
+  );
 
   const navLinks = [
     { label: 'Features', href: '#features' },
@@ -80,10 +87,19 @@ export default function Navbar() {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-bg-secondary transition-colors duration-200"
               >
-                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs font-semibold">
-                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </span>
+                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center overflow-hidden">
+                  {profileImageFailed ? (
+                    <span className="text-white text-xs font-semibold">
+                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  ) : (
+                    <img
+                      src={profileAvatar}
+                      alt={`${user.name || 'User'} profile`}
+                      className="w-full h-full object-cover"
+                      onError={() => setProfileImageFailed(true)}
+                    />
+                  )}
                 </div>
                 <span className="text-sm font-medium text-text">{user.name?.split(' ')[0] || 'User'}</span>
                 <ChevronDown className="w-4 h-4 text-text-secondary" />
