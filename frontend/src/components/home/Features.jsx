@@ -9,22 +9,16 @@ const features = [
     tag: 'Most Popular',
   },
   {
-    icon: Users,
-    title: 'HR Expert Sessions',
-    description: 'Book one-on-one sessions with experienced HR professionals who conduct realistic behavioral and technical interviews.',
-    tag: null,
+    icon: Building2,
+    title: 'Company-Specific Prep',
+    description: 'Access curated question banks from Google, Amazon, Microsoft, and 50+ top companies with role-specific practice sessions.',
+    tag: 'New',
   },
   {
     icon: FileSearch,
     title: 'Resume ATS Review',
     description: 'Get your resume scored against real ATS systems. Receive actionable suggestions to improve keyword matching and formatting.',
     tag: null,
-  },
-  {
-    icon: Building2,
-    title: 'Company-Specific Prep',
-    description: 'Access curated question banks from Google, Amazon, Microsoft, and 50+ top companies with role-specific practice sessions.',
-    tag: 'New',
   },
   {
     icon: MessageSquareText,
@@ -37,6 +31,12 @@ const features = [
     title: 'Performance Analytics',
     description: 'Track your progress with detailed charts, skill radars, weakness identification, and hiring readiness scores.',
     tag: null,
+  },
+  {
+    icon: Users,
+    title: 'HR Expert Sessions',
+    description: 'Book one-on-one sessions with experienced HR professionals who conduct realistic behavioral and technical interviews.',
+    tag: 'Upcoming',
   },
 ];
 
