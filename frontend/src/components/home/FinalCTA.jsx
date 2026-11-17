@@ -38,12 +38,7 @@ export default function FinalCTA() {
                 Start Practicing Free
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/15 text-white font-semibold text-[15px] px-8 py-4 rounded-xl transition-all duration-200"
-              >
-                Sign In
-              </Link>
+            
             </div>
           </div>
         </motion.div>
