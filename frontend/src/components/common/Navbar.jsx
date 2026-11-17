@@ -40,16 +40,11 @@ export default function Navbar() {
   );
 
   const navLinks = [
-    { label: 'Features', href: '#features' },
-    { label: 'How It Works', href: '#how-it-works' },
-    { label: 'Companies', href: '#companies' },
-    { label: 'Pricing', href: '#pricing' },
-    
+    { label: 'Features', href: '/features' },
+    { label: 'How It Works', href: '/how-it-works' },
+    { label: 'Companies', href: '/companies' },
+    { label: 'Pricing', href: '/pricing' },
   ];
-
-  const getNavTarget = (href) => (
-    location.pathname === '/' ? href : `/${href}`
-  );
 
   return (
     <nav
@@ -70,13 +65,15 @@ export default function Navbar() {
 
         <div className="hidden lg:flex items-center gap-8">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.label}
-              href={getNavTarget(link.href)}
-              className="text-[14px] font-medium text-text-secondary hover:text-text transition-colors duration-200"
+              to={link.href}
+              className={`text-[14px] font-medium transition-colors duration-200 ${
+                location.pathname === link.href ? 'text-accent' : 'text-text-secondary hover:text-text'
+              }`}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
 
@@ -177,14 +174,16 @@ export default function Navbar() {
         <div className="lg:hidden fixed inset-0 top-[72px] bg-white z-40">
           <div className="p-6 flex flex-col gap-1">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.label}
-                href={getNavTarget(link.href)}
+                to={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="text-[16px] font-medium text-text py-3 px-4 rounded-xl hover:bg-bg-secondary transition-colors"
+                className={`text-[16px] font-medium py-3 px-4 rounded-xl hover:bg-bg-secondary transition-colors ${
+                  location.pathname === link.href ? 'text-accent' : 'text-text'
+                }`}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             <div className="h-px bg-border my-4" />
             {user ? (

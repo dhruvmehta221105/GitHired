@@ -39,6 +39,8 @@ const statusStyles = {
 export default function Profile() {
   const { user: authUser, logout } = useAuth();
   const [profile, setProfile] = useState(authUser);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
+  const [avatarFallbackFailed, setAvatarFallbackFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -67,6 +69,10 @@ export default function Profile() {
   const readiness = Math.min(100, Math.max(0, averageScore));
   const memberSince = formatDate(user.createdAt);
   const displayName = user.name || 'Your profile';
+  const genderAvatar = user.gender?.toLowerCase() === 'female'
+    ? 'https://assets.watermelon.sh/wm_emma.png'
+    : 'https://assets.watermelon.sh/wm_josh.png';
+  const profileAvatar = user.avatar && !profileImageFailed ? user.avatar : genderAvatar;
 
   const summary = useMemo(
     () => [
@@ -133,8 +139,23 @@ export default function Profile() {
           <div className="absolute right-16 -bottom-48 w-96 h-96 rounded-full border border-white/10" />
           <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
             <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-2xl bg-accent flex items-center justify-center text-2xl font-extrabold shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
-                {getInitials(displayName)}
+              <div className="w-20 h-20 rounded-2xl bg-accent flex items-center justify-center text-2xl font-extrabold shadow-[0_8px_24px_rgba(0,0,0,0.2)] overflow-hidden">
+                {avatarFallbackFailed ? (
+                  getInitials(displayName)
+                ) : (
+                  <img
+                    src={profileAvatar}
+                    alt={`${displayName} profile`}
+                    className="w-full h-full object-cover"
+                    onError={() => {
+                      if (user.avatar && !profileImageFailed) {
+                        setProfileImageFailed(true);
+                      } else {
+                        setAvatarFallbackFailed(true);
+                      }
+                    }}
+                  />
+                )}
               </div>
               <div>
                 <p className="text-[12px] uppercase tracking-[2px] font-semibold text-white/60 mb-2">

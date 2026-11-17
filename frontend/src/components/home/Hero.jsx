@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/useAuth';
 import { ArrowRight, TrendingUp, FileText, Calendar, BarChart3, Clock, Star, CheckCircle2 } from 'lucide-react';
 
 const fadeUp = {
@@ -139,6 +140,9 @@ function DashboardMockup() {
 }
 
 export default function Hero() {
+  const { user } = useAuth();
+  const practicePath = user ? '/interviews' : '/signup';
+
   return (
     <section className="relative pt-[120px] pb-20 lg:pb-28 overflow-hidden">
       <div className="max-w-[1200px] mx-auto px-6">
@@ -185,18 +189,18 @@ export default function Hero() {
               className="flex flex-col sm:flex-row gap-3"
             >
               <Link
-                to="/signup"
+                to={practicePath}
                 className="inline-flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white font-semibold text-[15px] px-7 py-3.5 rounded-xl transition-all duration-200 hover:shadow-[0_4px_16px_rgba(31,94,59,0.3)]"
               >
                 Start Practicing Free
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <a
-                href="#how-it-works"
+              <Link
+                to="/how-it-works"
                 className="inline-flex items-center justify-center gap-2 bg-bg-card border border-border hover:border-text/20 text-text font-semibold text-[15px] px-7 py-3.5 rounded-xl transition-all duration-200"
               >
                 See How It Works
-              </a>
+              </Link>
             </motion.div>
 
             <motion.div

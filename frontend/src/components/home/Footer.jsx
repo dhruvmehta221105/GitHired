@@ -3,16 +3,16 @@ import { Link } from 'react-router-dom';
 
 const footerLinks = {
   Product: [
-    { label: 'AI Interviews', href: '#features' },
-    { label: 'HR Sessions', href: '#features' },
-    { label: 'Resume Review', href: '#features' },
-    { label: 'Analytics', href: '#features' },
-    { label: 'Pricing', href: '#pricing' },
+    { label: 'AI Interviews', href: '/features' },
+    { label: 'HR Sessions', href: '/features' },
+    { label: 'Resume Review', href: '/features' },
+    { label: 'Analytics', href: '/features' },
+    { label: 'Pricing', href: '/pricing' },
   ],
   Resources: [
     { label: 'Interview Guide', href: '#' },
     { label: 'Resume Tips', href: '#' },
-    { label: 'Company Prep', href: '#companies' },
+    { label: 'Company Prep', href: '/companies' },
     { label: 'Blog', href: '#' },
     { label: 'Help Center', href: '#' },
   ],
@@ -80,12 +80,12 @@ export default function Footer() {
               <ul className="space-y-2.5">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="text-[13px] text-text-secondary hover:text-text transition-colors duration-200"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
