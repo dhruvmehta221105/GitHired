@@ -20,7 +20,7 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '29',
+    price: '500',
     period: '/month',
     description: 'For serious candidates preparing for top companies.',
     features: [
@@ -33,13 +33,13 @@ const plans = [
       'Company-specific prep paths',
       'Priority support',
     ],
-    cta: 'Start Pro Trial',
+    cta: 'Get Started',
     highlighted: true,
   },
   {
     name: 'Premium',
-    price: '79',
-    period: '/month',
+    price: '3000',
+    period: '/year',
     description: 'Maximum preparation for high-stakes interviews.',
     features: [
       'Everything in Pro',
@@ -51,7 +51,7 @@ const plans = [
       'Executive interview training',
       'Dedicated account manager',
     ],
-    cta: 'Contact Sales',
+    cta: 'Get Started',
     highlighted: false,
   },
 ];
@@ -107,7 +107,7 @@ export default function Pricing() {
                 </h3>
                 <div className="flex items-baseline gap-1 mb-2">
                   <span className={`text-[40px] font-extrabold tracking-[-1px] ${plan.highlighted ? 'text-white' : 'text-text'}`}>
-                    ${plan.price}
+                    ₹{plan.price}
                   </span>
                   <span className={`text-[14px] font-medium ${plan.highlighted ? 'text-white/60' : 'text-text-secondary'}`}>
                     {plan.period}
