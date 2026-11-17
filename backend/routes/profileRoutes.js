@@ -1,24 +1,28 @@
 const express = require("express");
 const router = express.Router();
-const User = require("../models/User");
 const auth = require("../middleware/auth");
+const {
+  avatarUpload,
+  handleAvatarUploadError
+} = require("../middleware/upload");
+const {
+  getProfile,
+  updateProfile,
+  updateAvatar,
+  changePassword,
+  deleteAccount
+} = require("../controller/profileController");
 
-router.get("/", auth, async (req, res) => {
-  try {
-    // 🟢 FIX: remove password from response
-    const user = await User.findById(req.user.id).select("-password");
-
-    // 🟢 ADD: handle user not found
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json(user);
-
-  } catch (err) {
-    console.error("Profile Error:", err.message); // 🟢 debug
-    res.status(500).json({ message: "Server error" });
-  }
-});
+router.get("/", auth, getProfile);
+router.patch("/", auth, updateProfile);
+router.patch(
+  "/avatar",
+  auth,
+  avatarUpload.single("avatar"),
+  handleAvatarUploadError,
+  updateAvatar
+);
+router.patch("/password", auth, changePassword);
+router.delete("/", auth, deleteAccount);
 
 module.exports = router;

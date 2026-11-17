@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import API from '../api';
 import { useAuth } from '../context/useAuth';
+import { getAvatarUrl } from '../utils/avatarUrl';
 import {
   ArrowRight,
   BarChart3,
@@ -144,7 +145,7 @@ export default function Profile() {
                   getInitials(displayName)
                 ) : (
                   <img
-                    src={profileAvatar}
+                    src={getAvatarUrl(profileAvatar)}
                     alt={`${displayName} profile`}
                     className="w-full h-full object-cover"
                     onError={() => {

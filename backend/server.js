@@ -28,6 +28,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 fs.mkdirSync(config.tempUploadDir, { recursive: true });
 fs.mkdirSync(config.audioStorageDir, { recursive: true });
+fs.mkdirSync(path.join(uploadsDir, "avatars"), { recursive: true });
 
 // CORS configuration
 app.use(cors({
@@ -43,6 +44,10 @@ app.use(cors({
 // Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(
+  "/uploads/avatars",
+  express.static(path.join(uploadsDir, "avatars"))
+);
 
 // Routes
 const interviewRoutes = require("./routes/InterviewRoutes");

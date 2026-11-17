@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { Menu, X, ChevronDown, LogOut, User, LayoutDashboard } from 'lucide-react';
+import { Menu, X, ChevronDown, LogOut, User, LayoutDashboard, Settings } from 'lucide-react';
+import { getAvatarUrl } from '../../utils/avatarUrl';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -55,7 +56,7 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-[1200px] mx-auto px-6 h-[72px] flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to={user ? "/interviews" : "/"} className="flex items-center gap-2 group">
           <img
             src="/files/GitHired%20Green%20Tie%20Logo.png"
             alt="GitHired"
@@ -91,7 +92,7 @@ export default function Navbar() {
                     </span>
                   ) : (
                     <img
-                      src={profileAvatar}
+                      src={getAvatarUrl(profileAvatar)}
                       alt={`${user.name || 'User'} profile`}
                       className="w-full h-full object-cover"
                       onError={() => setProfileImageFailed(true)}
@@ -120,6 +121,14 @@ export default function Navbar() {
                     >
                       <LayoutDashboard className="w-4 h-4" />
                       Dashboard
+                    </Link>
+                    <Link
+                      to="/settings"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-secondary hover:text-text transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
                     </Link>
                     {isAdmin && (
                       <Link
@@ -201,6 +210,13 @@ export default function Navbar() {
                   className="text-[16px] font-medium text-text py-3 px-4 rounded-xl hover:bg-bg-secondary transition-colors"
                 >
                   Dashboard
+                </Link>
+                <Link
+                  to="/settings"
+                  onClick={() => setMobileOpen(false)}
+                  className="text-[16px] font-medium text-text py-3 px-4 rounded-xl hover:bg-bg-secondary transition-colors"
+                >
+                  Settings
                 </Link>
                 {isAdmin && (
                   <Link

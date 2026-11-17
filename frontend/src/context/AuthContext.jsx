@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AuthContext } from "./authContextValue";
 
 export const AuthProvider = ({ children }) => {
@@ -17,6 +17,14 @@ export const AuthProvider = ({ children }) => {
     setUser(data.user);
   };
 
+  const updateUser = useCallback((updates) => {
+    setUser((currentUser) => currentUser && { ...currentUser, ...updates });
+  }, []);
+
+  useEffect(() => {
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+  }, [user]);
+
   const logout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
@@ -27,7 +35,7 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = user?.role === "admin";
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, updateUser, logout, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

@@ -210,6 +210,14 @@ cd backend && npm start
 cd frontend && npm run dev
 ```
 
+### Resume Assistant
+
+The signed-in KiKi assistant uses the Resume Match FastAPI service for resume uploads.
+Start that service from `resume-match/backend` on port `8000`; the GitHired Vite
+development server proxies `/resume-match-api` to it. For a deployed frontend, set
+`VITE_RESUME_MATCH_API_URL` to the Resume Match API base URL (including `/api`) and
+configure that API to allow the deployed frontend origin through CORS.
+
 ## 🔐 Authentication
 
 * The first registered user is automatically assigned the `admin` role
@@ -217,6 +225,12 @@ cd frontend && npm run dev
 * Admin-only routes: `/add-feedback`, admin user management
 * All other protected routes require any authenticated user
 * JWT tokens expire after 30 days
+
+## ⚙️ Account Settings
+
+Signed-in users can update their display name and avatar, change their password, or
+delete their account and associated interview/chat data from **Settings**. Subscription
+cancellation is unavailable until a billing provider is connected.
 
 ## 🎤 Voice Transcription
 

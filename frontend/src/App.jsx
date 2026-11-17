@@ -19,6 +19,9 @@ import FeaturesPage from "./pages/FeaturesPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import CompaniesPage from "./pages/CompaniesPage";
 import PricingPage from "./pages/PricingPage";
+import AssistantWidget from "./components/common/AssistantWidget";
+import Settings from "./pages/Settings";
+import { useAuth } from "./context/useAuth";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -46,6 +49,8 @@ function ScrollToTop() {
 }
 
 function App() {
+  const { user } = useAuth();
+
   return (
     <Router>
       <ScrollToTop />
@@ -100,7 +105,12 @@ function App() {
           path="/profile" 
           element={<ProtectedRoute><Profile /></ProtectedRoute>} 
         />
+        <Route
+          path="/settings"
+          element={<ProtectedRoute><Settings /></ProtectedRoute>}
+        />
       </Routes>
+      {user && <AssistantWidget />}
     </Router>
   );
 }
