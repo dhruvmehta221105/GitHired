@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { useAuth } from '../../context/useAuth';
 
 export default function FinalCTA() {
+  const { user } = useAuth();
+
   return (
     <section className="py-16 lg:py-24">
       <div className="max-w-[1200px] mx-auto px-6">
@@ -29,7 +32,7 @@ export default function FinalCTA() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to="/signup"
+                to={user ? '/interviews' : '/signup'}
                 className="inline-flex items-center gap-2 bg-accent hover:bg-accent-dark text-white font-semibold text-[15px] px-8 py-4 rounded-xl transition-all duration-200"
               >
                 Start Practicing Free

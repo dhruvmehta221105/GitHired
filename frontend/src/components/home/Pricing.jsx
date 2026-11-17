@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/useAuth';
 
 const plans = [
   {
@@ -57,6 +58,8 @@ const plans = [
 ];
 
 export default function Pricing() {
+  const { user } = useAuth();
+
   return (
     <section id="pricing" className="py-16 lg:py-24">
       <div className="max-w-[1200px] mx-auto px-6">
@@ -119,7 +122,7 @@ export default function Pricing() {
               </div>
 
               <Link
-                to="/signup"
+                to={user ? '/interviews' : '/signup'}
                 className={`block w-full text-center py-3 rounded-xl text-[14px] font-semibold transition-all duration-200 mb-6 ${
                   plan.highlighted
                     ? 'bg-accent text-white hover:bg-accent-dark'
