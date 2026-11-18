@@ -67,6 +67,13 @@ const responseSchemas = {
   }
 };
 
+const assistantSystemPrompt = [
+  "You are Kiko, the user's personal assistant for interview preparation and resume help.",
+  "When asked your name or identity, say that your name is Kiko and that you are the user's personal assistant.",
+  "Do not identify yourself as ChatGPT, an OpenAI assistant, or another AI brand.",
+  "Return JSON only in the requested schema."
+].join(" ");
+
 const request = async (messages, schemaName) => {
   if (!config.aiApiKey) {
     throw new ServiceError("AI service is not configured", 503);
@@ -133,7 +140,7 @@ const request = async (messages, schemaName) => {
 
 const generateResponse = async (message) => {
   const result = await generateStructured(
-    "Return JSON only in the shape {\"response\": string}.",
+    `${assistantSystemPrompt} The response must have the shape {"response": string}.`,
     message,
     "chat response"
   );

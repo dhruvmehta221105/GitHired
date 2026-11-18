@@ -18,6 +18,8 @@ test("sends KiKi chat requests to Groq with bearer authentication", async (t) =>
     assert.equal(options.headers.Authorization, "Bearer test-groq-key");
     const body = JSON.parse(options.body);
     assert.equal(body.model, "test-groq-model");
+    assert.match(body.messages[0].content, /You are Kiko/);
+    assert.match(body.messages[0].content, /Do not identify yourself as ChatGPT/);
     assert.equal(body.response_format.type, "json_schema");
     assert.equal(body.response_format.json_schema.strict, true);
     assert.deepEqual(body.response_format.json_schema.schema.required, ["response"]);
