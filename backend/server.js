@@ -58,6 +58,7 @@ const profileRoutes = require("./routes/profileRoutes");
 const whisperRoutes = require("./routes/whisperRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const subscriberRoutes = require("./routes/subscriberRoutes");
+const dsaPracticeRoutes = require("./routes/dsaPracticeRoutes");
 
 // API endpoints
 app.use("/api/interviews", interviewRoutes);
@@ -68,6 +69,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/whisper", whisperRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/subscribe", subscriberRoutes);
+app.use("/api/dsa-practice", dsaPracticeRoutes);
 
 // Health check
 app.get("/", (req, res) => {

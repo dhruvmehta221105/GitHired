@@ -35,6 +35,15 @@ activities: [
     status: String,
     date: Date
   }
+],
+dsaProgress: [
+  {
+    _id: false,
+    companySlug: { type: String, required: true },
+    questionId: { type: Number, required: true },
+    solved: { type: Boolean, default: false },
+    updatedAt: { type: Date, default: Date.now }
+  }
 ]
   },
   { timestamps: true }
