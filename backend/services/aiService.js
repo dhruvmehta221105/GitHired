@@ -106,6 +106,12 @@ const request = async (messages, schemaName) => {
 
     const data = await response.json();
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new ServiceError(
+          "The configured AI API key was rejected. Check the configured AI provider key and restart the backend.",
+          503
+        );
+      }
       throw new ServiceError(data?.error?.message || "AI service request failed", 502);
     }
 

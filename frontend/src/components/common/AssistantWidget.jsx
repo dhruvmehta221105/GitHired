@@ -17,7 +17,7 @@ const RESUME_MATCH_API = import.meta.env.VITE_RESUME_MATCH_API_URL || "/resume-m
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const INITIAL_MESSAGE = {
   role: "assistant",
-  text: "Hi! I’m KiKi, your assistant. I can help with interview prep and your resume. What would you like to work on?",
+  text: "Hi! I’m Kiko, your assistant. I can help with interview prep and your resume. What would you like to work on?",
 };
 
 export default function AssistantWidget() {
@@ -26,11 +26,49 @@ export default function AssistantWidget() {
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadResult, setUploadResult] = useState(null);
   const messageListRef = useRef(null);
+  const historyLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!open || historyLoadedRef.current) return;
+
+    let active = true;
+    setHistoryLoading(true);
+    setHistoryError("");
+
+    API.get("/chat/history")
+      .then(({ data }) => {
+        if (!active) return;
+
+        const history = Array.isArray(data)
+          ? data.flatMap((chat) => [
+            { role: "user", text: chat.message },
+            { role: "assistant", text: chat.response },
+          ]).filter((message) => message.text)
+          : [];
+
+        setMessages(history.length > 0 ? history : [INITIAL_MESSAGE]);
+        historyLoadedRef.current = true;
+      })
+      .catch(() => {
+        if (active) {
+          setHistoryError("Your previous conversations could not be loaded. You can still start a new one.");
+        }
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   useEffect(() => {
     messageListRef.current?.scrollTo({
@@ -50,9 +88,15 @@ export default function AssistantWidget() {
 
     try {
       const { data } = await API.post("/chat/send", { message });
+      if (!data?.response) {
+        throw new Error("Kiko returned an empty response.");
+      }
       setMessages((current) => [...current, { role: "assistant", text: data.response }]);
     } catch (error) {
-      const detail = error.response?.data?.error || "I couldn’t send that just now. Please try again.";
+      const detail = error.response?.data?.error
+        || (error.request
+          ? "Kiko could not reach the assistant service. Please try again."
+          : "Kiko could not answer that just now. Please try again.");
       setMessages((current) => [...current, { role: "assistant", text: detail, isError: true }]);
     } finally {
       setSending(false);
@@ -118,7 +162,7 @@ export default function AssistantWidget() {
     <div className="fixed bottom-5 right-5 z-[60]">
       {open && (
         <section
-          aria-label="KiKi assistant"
+          aria-label="Kiko assistant"
           className="mb-3 flex h-[min(560px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-[0_16px_60px_rgba(0,0,0,0.2)]"
         >
           <header className="flex items-center justify-between bg-accent px-4 py-3 text-white">
@@ -127,7 +171,7 @@ export default function AssistantWidget() {
                 <Bot size={23} />
               </span>
               <div>
-                <h2 className="text-sm font-bold">KiKi Assistant</h2>
+                <h2 className="text-sm font-bold">KiKo Assistant</h2>
                 <p className="flex items-center gap-1.5 text-xs text-white/80">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                   Here to help
@@ -169,7 +213,18 @@ export default function AssistantWidget() {
 
           {activeTab === "chat" ? (
             <>
-              <div ref={messageListRef} className="flex-1 space-y-3 overflow-y-auto bg-[#fafaf8] p-4">
+              <div ref={messageListRef} className="flex-1 space-y-3 overflow-y-auto bg-[#fafaf8] p-4" aria-live="polite">
+                {historyLoading && (
+                  <div className="flex items-center gap-2 text-sm text-text-secondary" role="status">
+                    <LoaderCircle size={15} className="animate-spin" />
+                    Loading your conversations…
+                  </div>
+                )}
+                {historyError && (
+                  <p className="rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800" role="status">
+                    {historyError}
+                  </p>
+                )}
                 {messages.map((message, index) => (
                   <div
                     key={`${index}-${message.role}`}
@@ -191,7 +246,7 @@ export default function AssistantWidget() {
                 {sending && (
                   <div className="flex items-center gap-2 text-sm text-text-secondary" role="status">
                     <LoaderCircle size={15} className="animate-spin" />
-                    KiKi is thinking…
+                    Kiko is thinking…
                   </div>
                 )}
               </div>
@@ -205,8 +260,8 @@ export default function AssistantWidget() {
                       event.currentTarget.form?.requestSubmit();
                     }
                   }}
-                  placeholder="Ask KiKi anything…"
-                  aria-label="Message KiKi"
+                  placeholder="Ask KiKo anything…"
+                  aria-label="Message KiKo"
                   rows={1}
                   maxLength={4000}
                   className="max-h-24 min-h-10 flex-1 resize-y rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text outline-none transition focus:border-accent"
@@ -276,13 +331,13 @@ export default function AssistantWidget() {
           type="button"
           onClick={() => setOpen(true)}
           className="flex items-center gap-3 rounded-full bg-accent py-2 pl-2 pr-4 text-left text-white shadow-[0_8px_28px_rgba(31,94,59,0.3)] transition hover:-translate-y-0.5 hover:bg-accent-dark"
-          aria-label="Open KiKi assistant"
+          aria-label="Open KiKo assistant"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15">
             <Bot size={22} />
           </span>
           <span>
-            <span className="block text-sm font-bold">Hi! I’m KiKi</span>
+            <span className="block text-sm font-bold">Hi! I’m KiKo</span>
             <span className="block text-xs text-white/80">Your assistant</span>
           </span>
         </button>
