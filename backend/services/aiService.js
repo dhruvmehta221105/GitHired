@@ -1,33 +1,106 @@
 const config = require("../config/env");
 const ServiceError = require("./serviceError");
 
-const request = async (messages, schemaName) => {
-  const isOpenRouter = Boolean(config.openRouterApiKey);
-  const apiKey = isOpenRouter ? config.openRouterApiKey : config.openAiApiKey;
-  const url = isOpenRouter ? config.openRouterUrl : config.openAiUrl;
-  const model = isOpenRouter ? config.openRouterModel : config.openAiModel;
+const responseSchemas = {
+  "chat response": {
+    name: "chat_response",
+    schema: {
+      type: "object",
+      properties: { response: { type: "string" } },
+      required: ["response"],
+      additionalProperties: false
+    }
+  },
+  question: {
+    name: "interview_question",
+    schema: {
+      type: "object",
+      properties: {
+        questionText: { type: "string" },
+        focus: { type: "string" },
+        difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+        expectedSignals: { type: "array", items: { type: "string" } }
+      },
+      required: ["questionText", "focus", "difficulty", "expectedSignals"],
+      additionalProperties: false
+    }
+  },
+  "answer evaluation": {
+    name: "answer_evaluation",
+    schema: {
+      type: "object",
+      properties: {
+        score: { type: "number" },
+        strengths: { type: "array", items: { type: "string" } },
+        weaknesses: { type: "array", items: { type: "string" } },
+        feedback: { type: "string" },
+        recommendedTopics: { type: "array", items: { type: "string" } }
+      },
+      required: ["score", "strengths", "weaknesses", "feedback", "recommendedTopics"],
+      additionalProperties: false
+    }
+  },
+  "interview feedback": {
+    name: "interview_feedback",
+    schema: {
+      type: "object",
+      properties: {
+        overallScore: { type: "number" },
+        categoryScores: {
+          type: "object",
+          properties: {
+            technical: { type: "number" },
+            communication: { type: "number" },
+            problemSolving: { type: "number" }
+          },
+          required: ["technical", "communication", "problemSolving"],
+          additionalProperties: false
+        },
+        strengths: { type: "array", items: { type: "string" } },
+        weaknesses: { type: "array", items: { type: "string" } },
+        summary: { type: "string" },
+        recommendedTopics: { type: "array", items: { type: "string" } }
+      },
+      required: ["overallScore", "categoryScores", "strengths", "weaknesses", "summary", "recommendedTopics"],
+      additionalProperties: false
+    }
+  }
+};
 
-  if (!apiKey) {
+const request = async (messages, schemaName) => {
+  if (!config.aiApiKey) {
     throw new ServiceError("AI service is not configured", 503);
+  }
+
+  const responseSchema = responseSchemas[schemaName];
+  if (!responseSchema) {
+    throw new ServiceError(`Unsupported AI response schema: ${schemaName}`, 500);
   }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.aiTimeoutMs);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(config.aiUrl, {
       method: "POST",
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.aiApiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model,
+        model: config.aiModel,
         messages,
         temperature: 0.2,
         max_tokens: 1800,
-        response_format: { type: "json_object" }
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: responseSchema.name,
+            strict: true,
+            schema: responseSchema.schema
+          }
+        }
       })
     });
 
@@ -35,7 +108,7 @@ const request = async (messages, schemaName) => {
     if (!response.ok) {
       if (response.status === 401) {
         throw new ServiceError(
-          "The configured AI API key was rejected. Replace OPENAI_API_KEY in backend/.env and restart the backend.",
+          "The configured AI API key was rejected. Check the configured AI provider key and restart the backend.",
           503
         );
       }
