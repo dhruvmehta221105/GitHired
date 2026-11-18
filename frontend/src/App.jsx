@@ -21,6 +21,7 @@ import CompaniesPage from "./pages/CompaniesPage";
 import PricingPage from "./pages/PricingPage";
 import AssistantWidget from "./components/common/AssistantWidget";
 import Settings from "./pages/Settings";
+import DsaPractice from "./pages/DsaPractice";
 import { useAuth } from "./context/useAuth";
 
 function ScrollToTop() {
@@ -108,6 +109,10 @@ function App() {
         <Route
           path="/settings"
           element={<ProtectedRoute><Settings /></ProtectedRoute>}
+        />
+        <Route
+          path="/dsa-practice"
+          element={<DsaPractice />}
         />
       </Routes>
       {user && <AssistantWidget />}

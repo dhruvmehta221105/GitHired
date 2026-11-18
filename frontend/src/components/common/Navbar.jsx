@@ -44,6 +44,7 @@ export default function Navbar() {
     { label: 'Features', href: '/features' },
     { label: 'How It Works', href: '/how-it-works' },
     { label: 'Companies', href: '/companies' },
+    { label: 'DSA Practice', href: '/dsa-practice' },
     { label: 'Pricing', href: '/pricing' },
   ];
 
@@ -56,7 +57,7 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-[1200px] mx-auto px-6 h-[72px] flex items-center justify-between">
-        <Link to={user ? "/interviews" : "/"} className="flex items-center gap-2 group">
+        <Link to="/" className="flex items-center gap-2 group" aria-label="Return to GitHired home">
           <img
             src="/files/GitHired%20Green%20Tie%20Logo.png"
             alt="GitHired"
