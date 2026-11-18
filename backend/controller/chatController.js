@@ -14,7 +14,7 @@ const sendMessage = async (req, res) => {
     res.json(await chatService.sendMessage(req.user.id, message.trim()));
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message || "Unable to send message" });
   }
 };
 
@@ -24,7 +24,7 @@ const getChatHistory = async (req, res) => {
     res.json(await chatService.getChatHistory(req.user.id));
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message || "Unable to load chat history" });
   }
 };
 

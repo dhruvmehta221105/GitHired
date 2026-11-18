@@ -2,7 +2,12 @@ const config = require("../config/env");
 const ServiceError = require("./serviceError");
 
 const request = async (messages, schemaName) => {
-  if (!config.openRouterApiKey) {
+  const isOpenRouter = Boolean(config.openRouterApiKey);
+  const apiKey = isOpenRouter ? config.openRouterApiKey : config.openAiApiKey;
+  const url = isOpenRouter ? config.openRouterUrl : config.openAiUrl;
+  const model = isOpenRouter ? config.openRouterModel : config.openAiModel;
+
+  if (!apiKey) {
     throw new ServiceError("AI service is not configured", 503);
   }
 
@@ -10,15 +15,15 @@ const request = async (messages, schemaName) => {
   const timeout = setTimeout(() => controller.abort(), config.aiTimeoutMs);
 
   try {
-    const response = await fetch(config.openRouterUrl, {
+    const response = await fetch(url, {
       method: "POST",
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${config.openRouterApiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: config.openRouterModel,
+        model,
         messages,
         temperature: 0.2,
         max_tokens: 1800,
@@ -28,6 +33,12 @@ const request = async (messages, schemaName) => {
 
     const data = await response.json();
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new ServiceError(
+          "The configured AI API key was rejected. Replace OPENAI_API_KEY in backend/.env and restart the backend.",
+          503
+        );
+      }
       throw new ServiceError(data?.error?.message || "AI service request failed", 502);
     }
 

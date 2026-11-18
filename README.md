@@ -212,7 +212,7 @@ cd frontend && npm run dev
 
 ### Resume Assistant
 
-The signed-in KiKi assistant uses the Resume Match FastAPI service for resume uploads.
+The signed-in Kiko assistant uses the Resume Match FastAPI service for resume uploads.
 Start that service from `resume-match/backend` on port `8000`; the GitHired Vite
 development server proxies `/resume-match-api` to it. For a deployed frontend, set
 `VITE_RESUME_MATCH_API_URL` to the Resume Match API base URL (including `/api`) and
