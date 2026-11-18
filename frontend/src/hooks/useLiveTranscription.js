@@ -129,6 +129,13 @@ export const useLiveTranscription = ({ interviewId, mediaStream = null }) => {
             return { ...current, ...merged, segments };
           });
         }
+        if (message.type === "provider_closed") {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: "The live transcription service disconnected. You can continue with typed answers."
+          }));
+        }
         if (message.type === "error") {
           const error = new Error(message.message || "Transcription failed.");
           if (settled) await handleRuntimeError(error);
@@ -142,8 +149,8 @@ export const useLiveTranscription = ({ interviewId, mediaStream = null }) => {
         else if (socketRef.current === socket) {
           setState((current) => ({
             ...current,
-            status: "error",
-            error: "The transcription connection closed unexpectedly."
+            status: current.status === "error" ? current.status : "error",
+            error: current.error || "The live transcription service disconnected. You can continue with typed answers."
           }));
         }
       };

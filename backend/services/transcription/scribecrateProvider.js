@@ -87,7 +87,8 @@ class ScribecrateSession extends EventEmitter {
       });
 
       socket.on("error", (error) => {
-        const serviceError = new ServiceError(`ScribeCrate connection failed: ${error.message}`, 502);
+        const detail = error?.message || `Unable to reach ${this.config.wsUrl}`;
+        const serviceError = new ServiceError(`ScribeCrate connection failed: ${detail}`, 502);
         this.emit("error", serviceError);
         finishConnect(serviceError);
       });
