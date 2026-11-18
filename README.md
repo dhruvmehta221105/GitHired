@@ -181,9 +181,9 @@ Create a `.env` file in the backend directory:
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_secure_jwt_secret
-OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_URL=https://openrouter.ai/api/v1/chat/completions
-OPENROUTER_MODEL=mistralai/mixtral-8x7b-instruct
+GROQ_API_KEY=your_groq_api_key
+GROQ_URL=https://api.groq.com/openai/v1/chat/completions
+GROQ_MODEL=openai/gpt-oss-20b
 
 # ScribeCrate live transcription (required for voice interviews)
 SCRIBECRATE_WS_URL=ws://localhost:9090
@@ -198,6 +198,8 @@ EMAIL_PASS=your-app-password
 ```
 
 Never commit `backend/.env` or paste API keys into source files.
+For OpenRouter, set `OPENROUTER_API_KEY` (and optionally `OPENROUTER_URL` and
+`OPENROUTER_MODEL`) instead of `GROQ_API_KEY`.
 
 ### 5. Run the Applications
 

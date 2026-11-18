@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Interview = require("../models/Interview");
 const controller = require("../controller/interviewController");
+const interviewAiService = require("../services/interviewAiService");
 
 const user = { id: "user-1", role: "user" };
 
@@ -36,8 +37,25 @@ test("interview lifecycle preserves progress and rejects invalid answers", async
   const originalFindOneAndUpdate = Interview.findOneAndUpdate;
   const originalFindByIdAndUpdate = Interview.findByIdAndUpdate;
   const originalUpdateOne = Interview.updateOne;
+  const originalEvaluateAnswer = interviewAiService.evaluateAnswer;
+  const originalEvaluateInterview = interviewAiService.evaluateInterview;
 
   try {
+    interviewAiService.evaluateAnswer = async () => ({
+      score: 80,
+      strengths: ["Clear explanation"],
+      weaknesses: [],
+      feedback: "Good answer.",
+      recommendedTopics: []
+    });
+    interviewAiService.evaluateInterview = async () => ({
+      overallScore: 80,
+      categoryScores: { technical: 4, communication: 4, problemSolving: 4 },
+      strengths: ["Clear explanation"],
+      weaknesses: [],
+      summary: "Good interview.",
+      recommendedTopics: []
+    });
     Interview.findById = async () => interview;
     Interview.findOneAndUpdate = async (filter, update) => {
       if (filter.status !== interview.status || filter.currentQuestionIndex !== interview.currentQuestionIndex) {
@@ -132,6 +150,8 @@ test("interview lifecycle preserves progress and rejects invalid answers", async
     );
     assert.equal(response.statusCode, 409);
   } finally {
+    interviewAiService.evaluateAnswer = originalEvaluateAnswer;
+    interviewAiService.evaluateInterview = originalEvaluateInterview;
     Interview.findById = originalFindById;
     Interview.findOneAndUpdate = originalFindOneAndUpdate;
     Interview.findByIdAndUpdate = originalFindByIdAndUpdate;
