@@ -44,6 +44,14 @@ const formatDuration = (seconds) => {
   return `${minutes}m ${remainingSeconds}s`;
 };
 
+const scoreLabel = (score) => {
+  if (score === null) return "Pending";
+  if (score >= 85) return "Excellent";
+  if (score >= 70) return "Strong";
+  if (score >= 55) return "Developing";
+  return "Needs practice";
+};
+
 function InterviewResult() {
   const { id: interviewId } = useParams();
   const navigate = useNavigate();
@@ -91,15 +99,17 @@ function InterviewResult() {
 
   const weakCategories = useMemo(
     () => categories.filter((category) => {
-      const score = asNumber(feedback?.[category.key]);
+      const score = asNumber(feedback?.[category.key] ?? interview?.categoryScores?.[category.key]);
       return score !== null && score < 3.5;
     }),
-    [feedback]
+    [feedback, interview]
   );
 
   const recommendedTopics = weakCategories.length
     ? weakCategories.map((category) => ({ label: category.label, text: categoryTopics[category.key] }))
-    : [{ label: `${interview?.role || "Interview"} fundamentals`, text: "Keep practicing timed sessions to build consistency under pressure." }];
+    : (interview.recommendedTopics || []).map((topic) => ({ label: topic, text: "Use this as a focus area in your next practice session." })).concat(
+      interview.recommendedTopics?.length ? [] : [{ label: `${interview?.role || "Interview"} fundamentals`, text: "Keep practicing timed sessions to build consistency under pressure." }]
+    );
 
   const handleRetry = async () => {
     if (!interview) return;
@@ -147,7 +157,7 @@ function InterviewResult() {
             <div style={styles.scoreIcon}><Trophy size={20} /></div>
             <p style={styles.panelKicker}>Overall score</p>
             <div style={styles.scoreLine}>{overallScore === null ? "--" : overallScore}<span style={styles.scoreUnit}>/100</span></div>
-            <p style={styles.panelText}>{overallScore === null ? "Your score will appear after evaluation." : "A complete view of this interview session."}</p>
+            <p style={styles.panelText}>{overallScore === null ? "Your score will appear after evaluation." : `${scoreLabel(overallScore)} performance for this ${interview.role} practice session.`}</p>
             <div style={styles.scoreTrack}><div style={{ ...styles.scoreFill, width: `${Math.min(Math.max(overallScore || 0, 0), 100)}%` }} /></div>
           </div>
           <div style={styles.summaryPanel}>
@@ -165,15 +175,20 @@ function InterviewResult() {
           <SectionHeading icon={<Target size={18} />} title="Category scores" detail="Feedback is shown on the five-point scale used by your evaluator." />
           <div style={styles.categoryGrid}>
             {categories.map((category) => {
-              const score = asNumber(feedback?.[category.key]);
+              const score = asNumber(feedback?.[category.key] ?? interview.categoryScores?.[category.key]);
               return <div key={category.key} style={styles.categoryCard}><div style={styles.categoryTop}><span>{category.label}</span><strong>{score === null ? "--" : `${score.toFixed(1)}/5`}</strong></div><div style={styles.categoryTrack}><div style={{ ...styles.categoryFill, width: `${score === null ? 0 : (score / 5) * 100}%`, background: category.color }} /></div></div>;
             })}
           </div>
         </section>
 
+        <section style={styles.section}>
+          <SectionHeading icon={<Brain size={18} />} title={`AI analysis for ${interview.role}`} detail="Your spoken answers were evaluated against the role, difficulty, and interview questions." />
+          <p style={styles.longText}>{interview.feedback || "The AI summary is not available yet. Review the answer-level evaluations below."}</p>
+        </section>
+
         <section style={styles.twoColumn}>
-          <div style={styles.sectionBlock}><SectionHeading icon={<Sparkles size={18} />} title="Strengths" />{feedback?.strengths || interview.feedback ? <p style={styles.longText}>{feedback?.strengths || interview.feedback}</p> : <Pending text="Overall strengths will appear when evaluator feedback is available." />}</div>
-          <div style={styles.sectionBlock}><SectionHeading icon={<AlertIcon />} title="Weaknesses" />{feedback?.improvements ? <p style={styles.longText}>{feedback.improvements}</p> : weakCategories.length ? <div>{weakCategories.map((category) => <p key={category.key} style={styles.topicLine}>{category.label} needs more practice.</p>)}</div> : <Pending text="Complete an evaluated session to identify your weakest areas." />}</div>
+          <div style={styles.sectionBlock}><SectionHeading icon={<Sparkles size={18} />} title="Strengths" />{(feedback?.strengths || interview.strengths)?.length ? <ul style={styles.bulletList}>{(feedback?.strengths || interview.strengths).map((item) => <li key={item}>{item}</li>)}</ul> : interview.feedback ? <p style={styles.longText}>{interview.feedback}</p> : <Pending text="Overall strengths will appear when evaluator feedback is available." />}</div>
+          <div style={styles.sectionBlock}><SectionHeading icon={<AlertIcon />} title="Growth areas" />{(feedback?.weaknesses || interview.weaknesses)?.length ? <ul style={styles.bulletList}>{(feedback?.weaknesses || interview.weaknesses).map((item) => <li key={item}>{item}</li>)}</ul> : weakCategories.length ? <div>{weakCategories.map((category) => <p key={category.key} style={styles.topicLine}>{category.label} needs more practice.</p>)}</div> : <Pending text="Complete an evaluated session to identify your weakest areas." />}</div>
         </section>
 
         <section style={styles.section}>
@@ -185,7 +200,7 @@ function InterviewResult() {
                 <button style={styles.questionHeader} onClick={() => setExpandedQuestion(expanded ? null : index)}>
                   <span style={styles.questionNumber}>Q{index + 1}</span><span style={styles.questionPrompt}>{question.questionText}</span>{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </button>
-                {expanded && <div style={styles.questionBody}><div><span style={styles.fieldLabel}>Transcript</span><p style={styles.transcript}>{question.transcript || "Transcript unavailable for this answer."}</p></div><div style={styles.questionFeedback}><span style={styles.fieldLabel}>Feedback</span><p style={styles.transcript}>{question.feedback || "Question-level feedback is not available for this interview yet."}</p></div></div>}
+                {expanded && <div style={styles.questionBody}><div><span style={styles.fieldLabel}>Transcript</span><p style={styles.transcript}>{question.transcript || "Transcript unavailable for this answer."}</p></div><div style={styles.questionFeedback}><div style={styles.evaluationHeader}><span style={styles.fieldLabel}>AI score</span><strong style={styles.answerScore}>{question.evaluation?.score ?? "--"}{question.evaluation?.score !== undefined && "/100"}</strong></div><span style={styles.fieldLabel}>Feedback</span><p style={styles.transcript}>{question.evaluation?.feedback || question.feedback || "Question-level feedback is not available for this interview yet."}</p>{question.evaluation?.recommendedTopics?.length ? <p style={styles.evaluationTopics}><strong>Recommended:</strong> {question.evaluation.recommendedTopics.join(", ")}</p> : null}</div></div>}
               </article>;
             })}
           </div>
@@ -229,8 +244,8 @@ const styles = {
   summaryPanel: { padding: 24, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, summaryHeader: { display: "flex", justifyContent: "space-between", alignItems: "start", gap: 15 }, summaryTitle: { margin: 0, fontSize: 21 }, completedBadge: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 20, color: "#16866a", background: "#e3f8f1", fontSize: 11, fontWeight: 800, textTransform: "capitalize" }, summaryGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 20, marginTop: 28 }, fieldLabel: { display: "block", marginBottom: 6, color: "#8a93a3", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".6px" }, summaryValue: { display: "block", fontSize: 14 },
   section: { padding: 22, marginBottom: 16, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, sectionHeading: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 19 }, headingIcon: { display: "grid", placeItems: "center", width: 32, height: 32, color: "#1f5e3b", background: "#e8f0eb", borderRadius: 9, flexShrink: 0 }, sectionTitle: { margin: 0, fontSize: 18 }, sectionDetail: { margin: "5px 0 0", color: "#8a93a3", fontSize: 12 },
   categoryGrid: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }, categoryCard: { padding: 15, background: "#fafbfc", border: "1px solid #edf0f4", borderRadius: 11 }, categoryTop: { display: "flex", justifyContent: "space-between", gap: 12, color: "#4b5565", fontSize: 13 }, categoryTopStrong: { fontWeight: 800 }, categoryTrack: { height: 7, marginTop: 13, background: "#e9edf2", borderRadius: 20, overflow: "hidden" }, categoryFill: { height: "100%", borderRadius: 20 },
-  twoColumn: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16, marginBottom: 16 }, sectionBlock: { minHeight: 170, padding: 22, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, longText: { margin: 0, color: "#4b5565", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }, pending: { margin: 0, color: "#8a93a3", fontSize: 13, lineHeight: 1.6 }, topicLine: { margin: "0 0 8px", color: "#4b5565", fontSize: 14 }, alertIcon: { display: "grid", placeItems: "center", width: 18, height: 18, color: "#c76b1d", background: "#fff1df", borderRadius: "50%", fontSize: 12, fontWeight: 800 },
-  questionList: { display: "flex", flexDirection: "column", gap: 8 }, questionCard: { border: "1px solid #e8eaf0", borderRadius: 11, overflow: "hidden" }, questionHeader: { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", border: 0, background: "#fff", color: "#0f1117", textAlign: "left", cursor: "pointer" }, questionNumber: { color: "#1f5e3b", fontWeight: 800, fontSize: 12 }, questionPrompt: { flex: 1, fontSize: 13, fontWeight: 700, lineHeight: 1.45 }, questionBody: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 18, padding: "0 16px 17px", background: "#fafbfc" }, transcript: { margin: 0, color: "#4b5565", fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }, questionFeedback: { paddingLeft: 18, borderLeft: "1px solid #e3e7ed" },
+  twoColumn: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16, marginBottom: 16 }, sectionBlock: { minHeight: 170, padding: 22, background: "#fff", border: "1px solid #e8eaf0", borderRadius: 16 }, longText: { margin: 0, color: "#4b5565", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }, bulletList: { margin: 0, paddingLeft: 19, color: "#4b5565", fontSize: 14, lineHeight: 1.7 }, pending: { margin: 0, color: "#8a93a3", fontSize: 13, lineHeight: 1.6 }, topicLine: { margin: "0 0 8px", color: "#4b5565", fontSize: 14 }, alertIcon: { display: "grid", placeItems: "center", width: 18, height: 18, color: "#c76b1d", background: "#fff1df", borderRadius: "50%", fontSize: 12, fontWeight: 800 },
+  questionList: { display: "flex", flexDirection: "column", gap: 8 }, questionCard: { border: "1px solid #e8eaf0", borderRadius: 11, overflow: "hidden" }, questionHeader: { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px", border: 0, background: "#fff", color: "#0f1117", textAlign: "left", cursor: "pointer" }, questionNumber: { color: "#1f5e3b", fontWeight: 800, fontSize: 12 }, questionPrompt: { flex: 1, fontSize: 13, fontWeight: 700, lineHeight: 1.45 }, questionBody: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 18, padding: "0 16px 17px", background: "#fafbfc" }, transcript: { margin: 0, color: "#4b5565", fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }, questionFeedback: { paddingLeft: 18, borderLeft: "1px solid #e3e7ed" }, evaluationHeader: { display: "flex", alignItems: "start", justifyContent: "space-between", gap: 12 }, answerScore: { color: "#1f5e3b", fontSize: 18 }, evaluationTopics: { margin: "13px 0 0", color: "#697386", fontSize: 12, lineHeight: 1.5 },
   topicGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }, topicCard: { display: "flex", gap: 11, padding: 14, background: "#fafbfc", border: "1px solid #edf0f4", borderRadius: 11 }, topicIcon: { display: "grid", placeItems: "center", width: 30, height: 30, color: "#1f5e3b", background: "#e8f0eb", borderRadius: 8, flexShrink: 0 }, topicTitle: { fontSize: 13 }, topicText: { margin: "4px 0 0", color: "#697386", fontSize: 12, lineHeight: 1.5 },
   footerActions: { display: "flex", justifyContent: "space-between", gap: 12, paddingTop: 6 }, statePage: { minHeight: "100vh", display: "grid", placeItems: "center", gap: 14, color: "#697386", fontFamily: "'Plus Jakarta Sans', sans-serif" }
 };

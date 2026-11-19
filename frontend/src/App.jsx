@@ -51,6 +51,8 @@ function ScrollToTop() {
 
 function App() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
+  const isActiveInterview = pathname.startsWith("/interview/");
 
   return (
     <Router>
@@ -115,7 +117,7 @@ function App() {
           element={<DsaPractice />}
         />
       </Routes>
-      {user && <AssistantWidget />}
+      {user && !isActiveInterview && <AssistantWidget />}
     </Router>
   );
 }

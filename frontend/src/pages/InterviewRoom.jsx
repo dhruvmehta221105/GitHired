@@ -1,1267 +1,536 @@
-import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
-  CircleHelp,
+  ArrowLeft,
+  Camera,
+  CameraOff,
+  CheckCircle2,
+  Clock3,
+  LoaderCircle,
   Mic,
   MicOff,
   Pause,
+  RefreshCw,
   Send,
   ShieldCheck,
+  Sparkles,
   Square,
-  Video,
-  VideoOff
+  Wifi,
+  XCircle
 } from "lucide-react";
 import API from "../api";
 import { stopAllMediaTracks } from "../utils/interviewUtils";
 import { useLiveTranscription } from "../hooks/useLiveTranscription";
 import LiveTranscript from "../components/interview/LiveTranscript";
 
-/* ─── CSS injected once ─────────────────────────────────── */
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+const ROOM_CSS = `
+  @keyframes interview-spin { to { transform: rotate(360deg); } }
+  @keyframes interview-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, .32); }
+    50% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); }
   }
-  @keyframes recPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.4; transform: scale(0.85); }
+  @keyframes interview-rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+  .interview-spin { animation: interview-spin 1s linear infinite; }
+  .interview-pulse { animation: interview-pulse 1.6s ease-out infinite; }
+  .interview-rise { animation: interview-rise .35s ease both; }
+  .interview-scrollbar::-webkit-scrollbar { width: 7px; }
+  .interview-scrollbar::-webkit-scrollbar-thumb { background: #d7ddd9; border-radius: 999px; }
+  @media (max-width: 980px) {
+    .interview-workspace { grid-template-columns: 1fr !important; }
+    .interview-sidebar { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .interview-transcript-card { grid-column: 1 / -1; }
   }
-  @keyframes shimmer {
-    0%   { background-position: -400px 0; }
-    100% { background-position: 400px 0; }
+  @media (max-width: 760px) {
+    .interview-media-grid { grid-template-columns: 1fr !important; }
   }
-
-  .ix-spin   { animation: spin 1s linear infinite; }
-  .ix-pulse  { animation: recPulse 1.6s ease-in-out infinite; }
-  .ix-fade   { animation: fadeIn 0.3s ease both; }
-
-  .ix-ctrl-btn:hover  { border-color: #1f5e3b !important; transform: translateY(-1px); }
-  .ix-submit-btn:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(31,94,59,0.24) !important; }
-  .ix-end-btn:hover:not(:disabled)    { background: #f0f7f2 !important; }
-  .ix-shortcut-row:hover kbd { background: #e8f0eb !important; color: #174a2e !important; }
-  @media (max-width: 900px) {
-    .interview-room-main { overflow-y: auto !important; flex-direction: column !important; }
-    .interview-room-left { min-height: 620px !important; }
-    .interview-room-side { width: 100% !important; overflow: visible !important; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .interview-room-transcript { grid-column: 1 / -1; }
-  }
-  @media (max-width: 620px) {
-    .interview-room-main { padding: 14px !important; }
-    .interview-room-side { display: flex !important; }
-    .interview-room-topbar { padding: 0 14px !important; }
-    .interview-room-topbar .ix-status-chip { display: none; }
-    .interview-room-bottom { height: auto !important; padding: 12px 14px !important; flex-wrap: wrap; }
-    .interview-room-bottom-center { order: -1; flex-basis: 100%; }
+  @media (max-width: 640px) {
+    .interview-header { padding: 14px 16px !important; }
+    .interview-header-meta { display: none !important; }
+    .interview-header-actions { gap: 6px !important; }
+    .interview-workspace { padding: 14px !important; }
+    .interview-sidebar { display: flex !important; }
+    .interview-controls { flex-direction: column !important; align-items: stretch !important; }
+    .interview-control-group, .interview-control-end { justify-content: center !important; }
   }
 `;
 
+const getMediaError = (error) => {
+  const messages = {
+    NotAllowedError: "Camera or microphone permission was denied. Allow access in your browser settings, then try again.",
+    NotFoundError: "No camera or microphone was found. Connect a device and try again.",
+    NotReadableError: "Your camera or microphone is already being used by another app. Close it and try again.",
+    SecurityError: "Camera and microphone access requires HTTPS or localhost.",
+    OverconstrainedError: "The selected camera or microphone settings are not available."
+  };
+  return messages[error?.name] || error?.message || "Unable to access your camera and microphone.";
+};
+
+const formatTime = (seconds) => (
+  `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+);
+
+function MediaStatus({ icon: Icon, label, active, detail }) {
+  const StatusIcon = Icon;
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${active ? "border-emerald-100 bg-emerald-50/70" : "border-red-100 bg-red-50/70"}`}>
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+        <StatusIcon size={16} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-bold text-slate-800">{label}</p>
+        <p className={`truncate text-[11px] ${active ? "text-emerald-700" : "text-red-600"}`}>{detail}</p>
+      </div>
+      {active ? <CheckCircle2 className="ml-auto shrink-0 text-emerald-600" size={16} /> : <XCircle className="ml-auto shrink-0 text-red-500" size={16} />}
+    </div>
+  );
+}
+
 function InterviewRoom() {
-  /* ── State (unchanged) ── */
   const { id: interviewId } = useParams();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [interview, setInterview] = useState(null);
+  const [role] = useState(location.state?.role || "");
+  const [loading, setLoading] = useState(true);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [mediaError, setMediaError] = useState("");
+  const [videoStream, setVideoStream] = useState(null);
+  const [hasVideo, setHasVideo] = useState(false);
+  const [hasMicrophone, setHasMicrophone] = useState(false);
+  const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [answerText, setAnswerText] = useState("");
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const timerRef = useRef(null);
+  const initializedRef = useRef(false);
+  const liveQuestionRef = useRef(null);
+  const liveTranscription = useLiveTranscription({ interviewId, mediaStream: videoStream });
+  const { start: startTranscription, stop: stopTranscription } = liveTranscription;
 
-  const [interview,        setInterview]        = useState(null);
-  const [role]                                  = useState(location.state?.role || "");
-  const [loading,          setLoading]          = useState(true);
-  const [error,            setError]            = useState("");
-  const [videoStream,      setVideoStream]      = useState(null);
-  const [isCameraOn,       setIsCameraOn]       = useState(true);
-  const [hasVideo,         setHasVideo]         = useState(false);
-  const [isMicOn,          setIsMicOn]          = useState(true);
-  const videoRef           = useRef(null);
-  const [currentQuestion,  setCurrentQuestion]  = useState(null);
-  const [isRecording,      setIsRecording]      = useState(false);
-  const [isSubmitting,     setIsSubmitting]     = useState(false);
-  const [timeElapsed,      setTimeElapsed]      = useState(0);
-  const [answerText,       setAnswerText]       = useState("");
-  const timerIntervalRef   = useRef(null);
-  const initializeRef      = useRef(false);
-  const liveQuestionRef    = useRef(null);
-  const liveTranscription = useLiveTranscription({
-    interviewId,
-    mediaStream: videoStream
-  });
-  const { start: startLiveTranscription } = liveTranscription;
-
-  useEffect(() => {
-    setIsRecording(liveTranscription.status === "recording");
-  }, [liveTranscription.status]);
-
-  /* ── Cleanup on unmount (master cleanup) ── */
-  useEffect(() => {
-    return () => {
-      console.log("[Cleanup] Component unmounting, cleaning up all resources...");
-      
-      // Stop timer
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-        console.log("[Cleanup] ✅ Timer stopped");
-      }
-      
-      // Stop all media tracks
-      if (videoStream) {
-        console.log("[Cleanup] Stopping media tracks...");
-        stopAllMediaTracks(videoStream);
-        console.log("[Cleanup] ✅ Media tracks stopped");
-      }
-      
-      // Clear video display
-      if (videoRef.current) {
-        try {
-          videoRef.current.pause();
-          videoRef.current.srcObject = null;
-          console.log("[Cleanup] ✅ Video element cleared");
-        } catch (e) {
-          console.warn("[Cleanup] Error clearing video:", e);
-        }
-      }
-      
-      console.log("[Cleanup] ✅ All cleanup complete");
-    };
+  const isRecording = liveTranscription.status === "recording";
+  const releaseMedia = useCallback(() => {
+    const stream = streamRef.current;
+    streamRef.current = null;
+    if (stream) stopAllMediaTracks(stream);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
+    setVideoStream(null);
+    setHasVideo(false);
+    setHasMicrophone(false);
+    setIsCameraOn(false);
+    setIsMicOn(false);
   }, []);
 
-  /* ── Init ── */
-  useEffect(() => {
-    // Only initialize once per component mount
-    if (initializeRef.current) return;
-    initializeRef.current = true;
+  const requestMedia = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaError("This browser does not support camera and microphone access.");
+      return null;
+    }
 
-    const init = async () => {
-      let acquiredStream = null;
+    setMediaLoading(true);
+    setMediaError("");
+    releaseMedia();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 360 },
+          facingMode: "user"
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      const videoTracks = stream.getVideoTracks();
+      const audioTracks = stream.getAudioTracks();
+      if (!videoTracks.length || !audioTracks.length) {
+        stopAllMediaTracks(stream);
+        throw new Error("A camera and microphone are both required to start the interview.");
+      }
+
+      streamRef.current = stream;
+      setVideoStream(stream);
+      setHasVideo(true);
+      setHasMicrophone(true);
+      setIsCameraOn(videoTracks.some((track) => track.enabled));
+      setIsMicOn(audioTracks.some((track) => track.enabled));
+      return stream;
+    } catch (requestError) {
+      setMediaError(getMediaError(requestError));
+      return null;
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [releaseMedia]);
+
+  useEffect(() => {
+    if (!videoStream || !videoRef.current) return undefined;
+    const video = videoRef.current;
+    video.srcObject = videoStream;
+    video.muted = true;
+    const playVideo = async () => {
+      try {
+        await video.play();
+      } catch {
+        setMediaError("Your camera is ready, but the preview could not start. Click the preview to try again.");
+      }
+    };
+    playVideo();
+    return () => {
+      video.pause();
+      video.srcObject = null;
+    };
+  }, [videoStream]);
+
+  useEffect(() => {
+    if (!videoStream || !currentQuestion || isSubmitting || liveQuestionRef.current === currentQuestion.questionId) return;
+    liveQuestionRef.current = currentQuestion.questionId;
+    startTranscription().catch((transcriptionError) => {
+      liveQuestionRef.current = null;
+      setError(transcriptionError.message || "Live transcription could not start. You can still type your answer.");
+    });
+  }, [currentQuestion, isSubmitting, startTranscription, videoStream]);
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    let active = true;
+
+    const initialize = async () => {
       try {
         setLoading(true);
         setError("");
-        
-        // Fetch interview data
-        const interviewRes = await API.get(`/interviews/${interviewId}`);
-        let activeInterview = interviewRes.data;
+        const interviewResponse = await API.get(`/interviews/${interviewId}`);
+        let activeInterview = interviewResponse.data;
 
         if (activeInterview.status === "completed") {
-          navigate(`/interview-result/${interviewId}`, {
-            replace: true,
-            state: { interview: activeInterview }
-          });
+          navigate(`/interview-result/${interviewId}`, { replace: true, state: { interview: activeInterview } });
           return;
         }
-
         if (activeInterview.status === "paused") {
-          const resumeResponse = await API.post(`/interviews/${interviewId}/resume`);
-          activeInterview = resumeResponse.data;
+          activeInterview = (await API.post(`/interviews/${interviewId}/resume`)).data;
         } else if (activeInterview.status === "scheduled") {
           await API.post(`/interviews/${interviewId}/ready`);
-          const startResponse = await API.post(`/interviews/${interviewId}/start`);
-          activeInterview = startResponse.data;
+          activeInterview = (await API.post(`/interviews/${interviewId}/start`)).data;
         } else if (activeInterview.status === "ready") {
-          const startResponse = await API.post(`/interviews/${interviewId}/start`);
-          activeInterview = startResponse.data;
+          activeInterview = (await API.post(`/interviews/${interviewId}/start`)).data;
         }
-
         if (activeInterview.status !== "in-progress") {
-          throw new Error(
-            `This interview is currently ${activeInterview.status}. Return to the interview dashboard and try again.`
-          );
+          throw new Error(`This interview is currently ${activeInterview.status}. Return to the interview dashboard and try again.`);
         }
 
+        const questionResponse = await API.get(`/interviews/${interviewId}/question`);
+        const stream = await requestMedia();
+        if (!stream) {
+          setLoading(false);
+          setInterview(activeInterview);
+          setCurrentQuestion(questionResponse.data);
+          return;
+        }
+        if (!active) {
+          stopAllMediaTracks(stream);
+          return;
+        }
         setInterview(activeInterview);
-
-        // ✅ REQUEST USER MEDIA (Audio + Video)
-        console.log("[Init] Requesting camera and microphone access...");
-        
-        // Check browser support first
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("Your browser doesn't support camera access. Please use Chrome, Firefox, Safari, or Edge.");
-        }
-        
-        // Check HTTPS/localhost requirement
-        const protocol = window.location.protocol;
-        if (protocol !== "https:" && !window.location.hostname.includes("localhost")) {
-          throw new Error("Camera access requires HTTPS or localhost. This is a browser security requirement.");
-        }
-        
-        try {
-          acquiredStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: "user"
-            },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
-            },
-          });
-        } catch (err) {
-          console.error(`[Init] getUserMedia error - ${err.name}:`, err.message);
-
-          if (err.name === "NotAllowedError") {
-            throw new Error("❌ Camera/Microphone permission denied. Please click the lock icon in your address bar and allow camera & microphone access.");
-          } else if (err.name === "NotFoundError") {
-            throw new Error("❌ No camera or microphone detected. Please check if your devices are connected and not in use by another application.");
-          } else if (err.name === "NotReadableError") {
-            throw new Error("❌ Camera/Microphone is in use by another app. Please close other apps using the camera (Zoom, Teams, etc.).");
-          } else if (err.name === "SecurityError") {
-            throw new Error("❌ Security error: Camera access only works on HTTPS or localhost.");
-          } else {
-            throw new Error(`Camera error: ${err.name} - ${err.message}`);
-          }
-        }
-
-        console.log("[Init] Stream obtained. Checking tracks...");
-        console.log(`  - Video tracks: ${acquiredStream.getVideoTracks().length}`);
-        console.log(`  - Audio tracks: ${acquiredStream.getAudioTracks().length}`);
-
-        // Validate streams - audio is required, video is optional
-        if (acquiredStream.getAudioTracks().length === 0) {
-          throw new Error("No microphone detected. Please connect a microphone and refresh.");
-        }
-
-        // If video track is missing, continue with audio-only (camera optional)
-        const videoAvailable = acquiredStream.getVideoTracks().length > 0;
-        setHasVideo(videoAvailable);
-        if (!videoAvailable) {
-          console.warn("[Init] No video track available - continuing audio-only");
-        }
-
-        console.log("[Init] Setting video stream to ref...");
-        setVideoStream(acquiredStream);
-
-        // ✅ FETCH FIRST QUESTION
-        const questionRes = await API.get(`/interviews/${interviewId}/question`);
-        console.log("[Init] Question fetched:", questionRes.data);
-        setCurrentQuestion(questionRes.data);
-
-        // ✅ START TIMER
-        let seconds = Math.max(
-          0,
-          Math.floor((Date.now() - new Date(activeInterview.startTime).getTime()) / 1000)
-        );
-        setTimeElapsed(seconds);
-        timerIntervalRef.current = setInterval(() => {
-          seconds += 1;
-          setTimeElapsed(seconds);
-          console.log(`[Timer] Elapsed: ${seconds}s`);
+        setCurrentQuestion(questionResponse.data);
+        const startTime = new Date(activeInterview.startTime).getTime();
+        setTimeElapsed(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+        timerRef.current = window.setInterval(() => {
+          setTimeElapsed((value) => value + 1);
         }, 1000);
-
-        setError(""); // Clear any initial errors
         setLoading(false);
-        console.log("[Init] ✅ Interview room initialized successfully");
-
-      } catch (err) {
-        console.error("[Init] ❌ Initialization error:", err);
-        if (acquiredStream) stopAllMediaTracks(acquiredStream);
-        initializeRef.current = false; // Allow retry
-        
-        if (err.name === "NotAllowedError") {
-          setError("Camera/Microphone permission denied. Please allow access and refresh.");
-        } else if (err.name === "NotFoundError") {
-          setError("No camera or microphone found. Please connect devices and refresh.");
-        } else {
-          setError(err.message || "Failed to initialize interview room");
-        }
-        
-        setLoading(false);
-      }
-    };
-
-    init();
-    
-    return () => {
-      console.log("[Cleanup] Cleaning up resources...");
-      
-      // Stop timer
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-      
-      // Stop media tracks
-      if (videoStream) {
-        console.log("[Cleanup] Stopping media tracks...");
-        stopAllMediaTracks(videoStream);
-      }
-      
-      // Clear video element
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      
-      console.log("[Cleanup] ✅ Cleanup complete");
-    };
-  }, [interviewId, navigate]);
-
-  /* ── Attach stream to video element when both are ready ── */
-  useEffect(() => {
-    if (videoStream && videoRef.current) {
-      try {
-        console.log("[StreamAttach] Video element found, attaching stream...");
-        videoRef.current.srcObject = videoStream;
-        
-        // Wait a tick to ensure stream is attached, then play
-        setTimeout(async () => {
-          try {
-            const playPromise = videoRef.current.play();
-            if (playPromise !== undefined) {
-              await playPromise;
-              console.log("[StreamAttach] ✅ Video playing successfully");
-            } else {
-              console.log("[StreamAttach] ✅ Play called (old browser)");
-            }
-          } catch (err) {
-            console.warn("[StreamAttach] Auto-play blocked or failed:", err.message);
-            // Try a user gesture approach - this is normal on some browsers
-            videoRef.current.muted = true;
-            try {
-              await videoRef.current.play();
-              console.log("[StreamAttach] ✅ Video playing with muted fallback");
-            } catch (err2) {
-              console.error("[StreamAttach] ❌ Failed to play video even with muted:", err2);
-            }
-          }
-        }, 0);
-        
-        console.log("[StreamAttach] Stream attached to video element, play initiated");
-      } catch (err) {
-        console.error("[StreamAttach] ❌ Error attaching stream to video:", err);
-        setError(`Failed to attach camera stream: ${err.message}`);
-      }
-    }
-  }, [videoStream]);
-
-  /* ── Start one live transcription session per question ── */
-  useEffect(() => {
-    if (loading || !videoStream || !currentQuestion || isSubmitting) return;
-    if (liveQuestionRef.current === currentQuestion.questionId) return;
-
-    liveQuestionRef.current = currentQuestion.questionId;
-    startLiveTranscription()
-      .then(() => setIsRecording(true))
-      .catch((err) => {
-        liveQuestionRef.current = null;
-        setError(err.message || "Unable to start live transcription.");
-      });
-  }, [
-    currentQuestion,
-    isSubmitting,
-    startLiveTranscription,
-    loading,
-    videoStream
-  ]);
-
-  /* ── Handle page unload/leave ── */
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (videoStream) {
-        // Stop camera immediately on page leave
-        console.log("[BeforeUnload] Stopping camera as user is leaving page...");
-        try {
-          stopAllMediaTracks(videoStream);
-          if (videoRef.current) {
-            videoRef.current.pause();
-            videoRef.current.srcObject = null;
-          }
-        } catch (err) {
-          console.error("[BeforeUnload] Error stopping camera:", err);
+      } catch (initializationError) {
+        if (active) {
+          setError(initializationError.response?.data?.error || initializationError.message || "Failed to initialize the interview.");
+          setLoading(false);
         }
       }
-      
-      // Show warning if interview is active
-      if (isRecording || (videoStream && !loading)) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      }
     };
+    initialize();
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      active = false;
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      initializedRef.current = false;
+      releaseMedia();
     };
-  }, [videoStream, isRecording, loading]);
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.code === "KeyM")  toggleMicrophone();
-      if (e.code === "KeyV")  toggleCamera();
-      if (e.code === "Enter") submitAnswer();
-      if (e.code === "Escape") endInterview();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [isRecording]);
+  }, [interviewId, navigate, releaseMedia, requestMedia]);
 
-  /* ── Media controls ── */
   const toggleCamera = () => {
-    if (videoStream) {
-      const videoTracks = videoStream.getVideoTracks();
-      console.log(`[ToggleCamera] Found ${videoTracks.length} video track(s)`);
-      
-      videoTracks.forEach((track) => {
-        const wasEnabled = track.enabled;
-        track.enabled = !track.enabled;
-        console.log(`[ToggleCamera] Track state changed: ${wasEnabled} → ${track.enabled}`);
-      });
-      
-      setIsCameraOn((v) => !v);
-      
-      // Ensure video element is visible/hidden properly
-      if (videoRef.current) {
-        videoRef.current.style.opacity = videoStream.getVideoTracks()[0]?.enabled ? "1" : "0.3";
-      }
-    }
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    setIsCameraOn(track.enabled);
   };
+
   const toggleMicrophone = () => {
-    if (videoStream) {
-      videoStream.getAudioTracks().forEach((t) => { t.enabled = !t.enabled; });
-      setIsMicOn((v) => !v);
-    }
+    const track = streamRef.current?.getAudioTracks()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    setIsMicOn(track.enabled);
   };
 
-  /* ── Submit the finalized live transcript ── */
   const submitAnswer = async () => {
-    if (isSubmitting) return;
-
+    if (isSubmitting || !currentQuestion) return;
+    setIsSubmitting(true);
+    setError("");
     try {
-      if (!currentQuestion) {
-        setError("Recording not initialized"); 
-        return; 
-      }
-      
-      setIsSubmitting(true);
-      setError("");
-      console.log("[Submit] Finalizing live transcription...");
-
-      await liveTranscription.stop();
-
+      await stopTranscription();
       const transcript = liveTranscription.transcript.trim() || answerText.trim();
       if (!transcript) {
-        console.warn("[Submit] No transcript or typed answer was provided.");
-        setError("Add an answer by speaking or typing before continuing.");
-        setIsSubmitting(false);
-        liveQuestionRef.current = null;
-        if (liveTranscription.status === "idle" || liveTranscription.status === "error") {
-          try {
-            await liveTranscription.start();
-          } catch (e) {
-            console.error("[Submit] Failed to restart live transcription:", e);
-          }
-        }
-        return; 
+        throw new Error("Speak an answer or type one in the answer box before continuing.");
       }
-
-      // Submit answer
-      console.log("[Submit] Submitting answer to API...");
       await API.post(`/interviews/${interviewId}/answer`, {
         questionId: currentQuestion.questionId,
         transcript
       });
-
-      // Fetch next question
-      console.log("[Submit] Fetching next question from API...");
-      let next;
-      try {
-        next = await API.get(`/interviews/${interviewId}/question`);
-        console.log("[Submit] Next question response:", next.data);
-      } catch (err) {
-        console.error("[Submit] Failed to fetch next question:", err);
-        throw new Error(`Failed to fetch next question: ${err.message}`);
-      }
-
-      if (!next.data) {
-        throw new Error("No question data received from server");
-      }
-
-      if (next.data.isLastQuestion) {
-        console.log("[Submit] Last question reached, ending interview");
+      const next = (await API.get(`/interviews/${interviewId}/question`)).data;
+      if (next?.isLastQuestion) {
         await endInterview();
-      } else {
-        console.log("[Submit] Setting next question and restarting transcription");
-        setCurrentQuestion(next.data);
-        liveQuestionRef.current = null;
-        setIsRecording(false);
+        return;
       }
+      setCurrentQuestion(next);
       setAnswerText("");
-      
-      console.log("[Submit] ✅ Answer submitted successfully");
-      
-    } catch (err) {
-      console.error("[Submit] Error:", err);
-      setError(err.response?.data?.error || err.message || "Failed to submit answer.");
+      liveQuestionRef.current = null;
+    } catch (submitError) {
+      setError(submitError.response?.data?.error || submitError.message || "Failed to submit your answer.");
+      liveQuestionRef.current = null;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  /* ── End ── */
   const pauseInterview = async () => {
     if (isSubmitting) return;
-
     try {
-      await liveTranscription.stop();
-      liveQuestionRef.current = null;
+      await stopTranscription();
       await API.post(`/interviews/${interviewId}/pause`);
-
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-      if (videoStream) stopAllMediaTracks(videoStream);
-      setVideoStream(null);
-      setIsRecording(false);
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      releaseMedia();
       navigate("/interviews");
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to pause interview");
+    } catch (pauseError) {
+      setError(pauseError.response?.data?.error || "Failed to pause the interview.");
     }
   };
 
   const endInterview = async () => {
     try {
-      console.log("[EndInterview] Starting interview end sequence...");
-      await liveTranscription.stop();
-      liveQuestionRef.current = null;
-      
-      // 1️⃣ Stop timer first
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-        console.log("[EndInterview] ✅ Timer stopped");
-      }
-      
-      // 2️⃣ Stop all media tracks (camera + microphone)
-      if (videoStream) {
-        console.log("[EndInterview] Stopping all media tracks (camera/mic)...");
-        try {
-          const videoTracks = videoStream.getVideoTracks();
-          const audioTracks = videoStream.getAudioTracks();
-          
-          videoTracks.forEach(track => {
-            console.log("[EndInterview] Stopping video track:", track.label);
-            track.stop();
-            track.enabled = false;
-          });
-          
-          audioTracks.forEach(track => {
-            console.log("[EndInterview] Stopping audio track:", track.label);
-            track.stop();
-            track.enabled = false;
-          });
-          
-          console.log(`[EndInterview] ✅ Stopped ${videoTracks.length} video track(s) and ${audioTracks.length} audio track(s)`);
-        } catch (e) {
-          console.error("[EndInterview] Error stopping tracks:", e);
-        }
-      }
-      
-      // 3️⃣ Clear video element and disconnect stream
-      if (videoRef.current) {
-        console.log("[EndInterview] Clearing video element...");
-        try {
-          videoRef.current.pause();
-          videoRef.current.srcObject = null;
-          console.log("[EndInterview] ✅ Video element cleared");
-        } catch (e) {
-          console.warn("[EndInterview] Error clearing video element:", e);
-        }
-      }
-      
-      // 4️⃣ Clean up state
-      setVideoStream(null);
-      setIsRecording(false);
-      console.log("[EndInterview] ✅ State cleaned up");
-      
-      // 5️⃣ Submit end request and navigate
-      console.log("[EndInterview] Sending end request to API...");
+      await stopTranscription();
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      releaseMedia();
       const response = await API.post(`/interviews/${interviewId}/end`);
-      console.log("[EndInterview] ✅ Interview ended successfully");
-      
       navigate(`/interview-result/${interviewId}`, { state: { interview: response.data } });
-    } catch (err) {
-      console.error("[EndInterview] ❌ Error ending interview:", err);
-      setError("Failed to end interview: " + (err.message || "Unknown error"));
+    } catch (endError) {
+      setError(endError.response?.data?.error || "Failed to end the interview.");
     }
   };
 
-  const formatTime = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const retryMedia = async () => {
+    const stream = await requestMedia();
+    if (stream) setMediaError("");
+  };
 
-  /* ── Loading screen ── */
+  useEffect(() => () => {
+    stopTranscription();
+  }, [stopTranscription]);
+
   if (loading) {
     return (
-      <div style={c.root}>
-        <style>{GLOBAL_CSS}</style>
-        <div style={c.loadWrap}>
-          <div style={c.loadInner}>
-            <div style={c.spinRing} className="ix-spin" />
-            <div style={c.loadLogo}>IX</div>
-            <p style={c.loadTitle}>Setting up your interview room</p>
-            <p style={c.loadSub}>Initializing camera, microphone and questions…</p>
-            <div style={c.loadDots}>
-              {["Connecting media","Loading questions","Preparing live transcription"].map((s, i) => (
-                <div key={i} style={{ ...c.loadStep, animationDelay: `${i * 0.15}s` }} className="ix-fade">
-                  <span style={c.loadStepDot} />
-                  {s}
-                </div>
-              ))}
-            </div>
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7f5] px-6">
+        <style>{ROOM_CSS}</style>
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f0eb] text-[#1f5e3b]">
+            <LoaderCircle className="interview-spin" size={28} />
+          </div>
+          <h1 className="mt-5 text-xl font-extrabold tracking-tight text-slate-900">Preparing your interview room</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Connecting your session and checking your camera, microphone, and live transcription.</p>
+          <div className="mt-6 space-y-2 text-left text-xs text-slate-500">
+            {["Loading interview session", "Requesting device access", "Preparing your first question"].map((item) => (
+              <div key={item} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#1f5e3b]" />
+                {item}
+              </div>
+            ))}
           </div>
         </div>
       </div>
     );
   }
 
-  const timerWarning = timeElapsed > 1140; // > 19 min
-
   return (
-    <div style={c.root}>
-      <style>{GLOBAL_CSS}</style>
-
-      {/* ══ TOP BAR ══ */}
-      <header style={c.topBar} className="interview-room-topbar">
-        {/* Brand + info */}
-        <div style={c.topLeft}>
-          <div style={c.brand}>
-            <span style={c.brandText}>GH</span>
+    <div className="min-h-screen bg-[#f5f7f5] text-slate-900">
+      <style>{ROOM_CSS}</style>
+      <header className="interview-header sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-7 py-4 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => navigate("/interviews")} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Back to interviews">
+              <ArrowLeft size={19} />
+            </button>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1f5e3b] text-sm font-black text-white shadow-lg shadow-[#1f5e3b]/20">GH</div>
+            <div className="interview-header-meta min-w-0">
+              <p className="truncate text-sm font-extrabold text-slate-900">{interview?.role || role || "Practice interview"}</p>
+              <p className="mt-0.5 truncate text-xs text-slate-500">{interview?.candidateName || "Interview candidate"} · Private practice session</p>
+            </div>
           </div>
-          <div style={c.topInfo}>
-            <span style={c.topName}>{interview?.candidateName || "Candidate"}</span>
-            <span style={c.topRole}>{interview?.role || role || "Interview Session"}</span>
+          <div className="flex items-center gap-3">
+            <div className={`hidden items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold sm:flex ${isRecording ? "border-red-100 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+              <span className={`h-2 w-2 rounded-full ${isRecording ? "interview-pulse bg-red-500" : "bg-slate-400"}`} />
+              {isRecording ? "Recording" : "Ready"}
+            </div>
+            <div className="flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-bold text-white">
+              <Clock3 size={15} className="text-emerald-300" />
+              {formatTime(timeElapsed)}
+            </div>
           </div>
-        </div>
-
-        {/* Timer */}
-        <div style={{ ...c.timerPill, ...(timerWarning ? c.timerWarn : {}) }}>
-          <span style={c.timerDot} className={isRecording ? "ix-pulse" : ""} />
-          <span style={c.timerText}>{formatTime(timeElapsed)}</span>
-        </div>
-
-        {/* Status chip */}
-        <div style={c.statusChip} className="ix-status-chip">
-          <span style={c.statusDot} />
-          Live interview
         </div>
       </header>
 
-      {/* ══ MAIN LAYOUT ══ */}
-      <main style={c.main} className="interview-room-main">
-
-        {/* ── LEFT PANEL ── */}
-        <section style={c.leftPanel} className="interview-room-left">
-
-          {/* Video (only when camera track exists) */}
-          {hasVideo && (
-            <div style={c.videoWrap}>
-              <video
-                ref={videoRef}
-                autoPlay={true}
-                playsInline={true}
-                muted={true}
-                style={c.video}
-                onLoadedMetadata={() => console.log("[Video] ✅ Metadata loaded - camera stream active")}
-                onCanPlay={() => console.log("[Video] ✅ Ready to play - camera is ON")}
-                onPlay={() => console.log("[Video] ✅ Video playing - camera feed visible")}
-                onError={(e) => {
-                  console.error("[Video] ❌ Error:", e);
-                  const errorCode = e.target.error?.code;
-                  const errorMsg = {
-                    1: "MEDIA_ERR_ABORTED",
-                    2: "MEDIA_ERR_NETWORK",
-                    3: "MEDIA_ERR_DECODE",
-                    4: "MEDIA_ERR_SRC_NOT_SUPPORTED"
-                  }[errorCode] || "Unknown error";
-                  console.error(`[Video] Error code: ${errorCode} (${errorMsg})`);
-                }}
-                onStalled={() => console.warn("[Video] ⚠️ Video stalled - buffering...")}
-                onSuspend={() => console.warn("[Video] ⚠️ Media loading suspended")}
-              />
-
-              {/* overlay badges */}
-              <div style={c.videoTopLeft}>
-                {isRecording && (
-                  <div style={c.recBadge}>
-                    <span style={c.recDot} className="ix-pulse" />
-                    Recording
-                  </div>
-                )}
-              </div>
-              <div style={c.videoTopRight}>
-                {!isCameraOn && <div style={c.camOffBadge}>Camera Off</div>}
-              </div>
-
-              {/* camera-off overlay */}
-              {!isCameraOn && (
-                <div style={c.camOffOverlay}>
-                  <VideoOff size={34} strokeWidth={1.7} style={c.camOffIcon} />
-                  <p style={c.camOffText}>Your camera is off</p>
+      <main className="interview-workspace mx-auto grid max-w-[1500px] grid-cols-[minmax(0,1.55fr)_minmax(330px,.8fr)] gap-5 p-7">
+        <section className="min-w-0 space-y-5">
+          <div className="interview-media-grid grid grid-cols-[minmax(0,.95fr)_minmax(0,1.05fr)] items-start gap-5">
+            <div className="interview-rise rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.12em] text-[#1f5e3b]">
+                  <Sparkles size={14} /> Question {Number(currentQuestion?.questionId || 0) + 1}
                 </div>
-              )}
-
-              {/* mic-off indicator */}
-              {!isMicOn && (
-                <div style={c.micOffStrip}>
-                  <MicOff size={14} /> Microphone muted — your answer is not being recorded
-                </div>
-              )}
+                <h1 className="mt-3 max-w-3xl text-xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-2xl">{currentQuestion?.questionText || "Your next question is loading..."}</h1>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">{currentQuestion?.type || "General"}</span>
             </div>
-          )}
-
-          {/* Question card */}
-          {currentQuestion && (
-            <div style={c.questionCard} className="ix-fade">
-              <div style={c.questionMeta}>
-                <span style={c.questionTag}>
-                  Question {currentQuestion.questionId + 1}
-                </span>
-                <span style={c.questionType}>
-                  {currentQuestion.type || "General"}
-                </span>
-              </div>
-              <p style={c.questionText}>{currentQuestion.questionText}</p>
-              <div style={c.questionFooter}>
-                <div style={isRecording ? c.recStatus : c.recStatusPaused}>
-                  <span style={{ ...c.recStatusDot, background: isRecording ? "#c84b42" : "#a0a0a0" }}
-                    className={isRecording ? "ix-pulse" : ""} />
-                  {isRecording ? "Recording your response" : "Recording paused"}
-                </div>
-                <span style={c.questionHint}>Speak clearly · Answer within 2–3 min</span>
-              </div>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
+              <span className={`flex items-center gap-2 font-bold ${isRecording ? "text-red-600" : "text-slate-500"}`}>
+                <span className={`h-2 w-2 rounded-full ${isRecording ? "interview-pulse bg-red-500" : "bg-slate-300"}`} />
+                {isRecording ? "Listening to your answer" : liveTranscription.status === "connecting" ? "Connecting transcription..." : "Transcription paused"}
+              </span>
+              <span className="text-slate-400">Speak naturally · Aim for 2–3 minutes</span>
             </div>
-          )}
-
-          <div style={c.answerCard}>
-            <label htmlFor="typed-answer" style={c.answerLabel}>
-              Answer workspace
-              <span style={c.answerOptional}>Use this if live transcription is unavailable</span>
-            </label>
-            <textarea
-              id="typed-answer"
-              value={answerText}
-              onChange={(event) => setAnswerText(event.target.value)}
-              placeholder="Type your answer here, or speak while transcription is connected..."
-              style={c.answerInput}
-              rows={4}
-              disabled={isSubmitting}
-            />
           </div>
 
-          {/* Error */}
-          {error && (
-            <div style={c.errorCard}>
-              <AlertTriangle size={17} style={c.errorIcon} />
-              <span>{error}</span>
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 shadow-xl shadow-slate-300/30">
+            <div className="relative aspect-video min-h-[280px] w-full">
+              {hasVideo ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  onClick={() => videoRef.current?.play()}
+                  className={`h-full w-full object-cover transition ${isCameraOn ? "opacity-100" : "opacity-25"}`}
+                />
+              ) : (
+                <div className="flex h-full min-h-[280px] flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-[#143b29] px-6 text-center text-white">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
+                    <CameraOff size={28} className="text-white/70" />
+                  </div>
+                  <p className="mt-4 font-bold">Camera preview unavailable</p>
+                  <p className="mt-1 max-w-sm text-xs leading-5 text-white/60">Allow camera access to see your preview. You can still use the typed answer while reconnecting.</p>
+                </div>
+              )}
+              <div className="absolute left-4 top-4 flex items-center gap-2">
+                <span className="rounded-full bg-black/50 px-3 py-1.5 text-[11px] font-bold text-white backdrop-blur">Your preview</span>
+                {isRecording && <span className="flex items-center gap-1.5 rounded-full bg-red-500 px-3 py-1.5 text-[11px] font-bold text-white"><span className="h-1.5 w-1.5 rounded-full bg-white" /> Live</span>}
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+                <div className="rounded-xl bg-black/55 px-3 py-2 text-xs text-white backdrop-blur">
+                  <span className="font-bold">{interview?.candidateName || "You"}</span>
+                  <span className="mx-2 text-white/40">·</span>
+                  <span className="text-white/70">{isCameraOn ? "Camera on" : "Camera off"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={toggleMicrophone} disabled={!hasMicrophone} className={`flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur transition ${isMicOn ? "bg-white/90 text-slate-800 hover:bg-white" : "bg-red-500 text-white"}`} aria-label={isMicOn ? "Mute microphone" : "Unmute microphone"}>
+                    {isMicOn ? <Mic size={17} /> : <MicOff size={17} />}
+                  </button>
+                  <button type="button" onClick={toggleCamera} disabled={!hasVideo} className={`flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur transition ${isCameraOn ? "bg-white/90 text-slate-800 hover:bg-white" : "bg-red-500 text-white"}`} aria-label={isCameraOn ? "Turn camera off" : "Turn camera on"}>
+                    {isCameraOn ? <Camera size={17} /> : <CameraOff size={17} />}
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <label htmlFor="typed-answer" className="flex flex-wrap items-center justify-between gap-2 text-sm font-extrabold text-slate-900">
+              Answer workspace
+              <span className="text-xs font-medium text-slate-400">Optional fallback if transcription is unavailable</span>
+            </label>
+            <textarea id="typed-answer" value={answerText} onChange={(event) => setAnswerText(event.target.value)} disabled={isSubmitting} rows={5} placeholder="Type your answer here, or speak while the live transcript listens..." className="mt-4 min-h-32 w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#1f5e3b] focus:bg-white focus:ring-4 focus:ring-[#1f5e3b]/10" />
+            {error && <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3.5 py-3 text-sm text-red-700"><AlertTriangle size={17} className="mt-0.5 shrink-0" /><span>{error}</span></div>}
+            {mediaError && <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-3 text-sm text-amber-800"><AlertTriangle size={17} className="mt-0.5 shrink-0" /><span>{mediaError}</span></div>}
+          </div>
         </section>
 
-        {/* ── RIGHT PANEL ── */}
-        <aside style={c.rightPanel} className="interview-room-side">
-
-          <div className="interview-room-transcript">
+        <aside className="interview-sidebar interview-scrollbar flex min-w-0 flex-col gap-5 overflow-y-auto lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-10rem)]">
+          <section className="interview-transcript-card min-h-[300px]">
             <LiveTranscript transcription={liveTranscription} />
-          </div>
+          </section>
 
-          {/* Candidate card */}
-          <div style={c.sideCard}>
-            <div style={c.sideCardHeader}>
-              <div style={c.candidateAvatar}>
-                {(interview?.candidateName || "C").charAt(0).toUpperCase()}
-              </div>
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
               <div>
-                <div style={c.candidateName}>{interview?.candidateName || "—"}</div>
-                <div style={c.candidateRole}>{interview?.role || "—"}</div>
+                <p className="text-sm font-extrabold text-slate-900">Device check</p>
+                <p className="mt-1 text-xs text-slate-500">Your devices stay private to this session.</p>
               </div>
+              <ShieldCheck className="text-[#1f5e3b]" size={21} />
             </div>
-            <div style={c.divider} />
-            <div style={c.statGrid}>
-              {[
-                { label: "Session", value: `#${interviewId?.slice(-6) || "—"}` },
-                { label: "Status",  value: "Live",   accent: "#1f5e3b" },
-                { label: "Elapsed", value: formatTime(timeElapsed) },
-                { label: "Q No.",   value: currentQuestion ? `${currentQuestion.questionId + 1}` : "—" },
-              ].map(({ label, value, accent }) => (
-                <div key={label} style={c.statItem}>
-                  <span style={c.statLabel}>{label}</span>
-                  <span style={{ ...c.statValue, ...(accent ? { color: accent } : {}) }}>{value}</span>
-                </div>
-              ))}
+            <div className="mt-4 space-y-2">
+              <MediaStatus icon={Camera} label="Camera" active={hasVideo && isCameraOn} detail={hasVideo ? (isCameraOn ? "Preview is live" : "Turned off") : "Not connected"} />
+              <MediaStatus icon={Mic} label="Microphone" active={hasMicrophone && isMicOn} detail={hasMicrophone ? (isMicOn ? "Ready to record" : "Muted") : "Not connected"} />
             </div>
-          </div>
+            <button type="button" onClick={retryMedia} disabled={mediaLoading} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:border-[#1f5e3b] hover:text-[#1f5e3b] disabled:cursor-not-allowed disabled:opacity-60">
+              {mediaLoading ? <LoaderCircle size={14} className="interview-spin" /> : <RefreshCw size={14} />}
+              {mediaLoading ? "Connecting devices..." : "Reconnect devices"}
+            </button>
+          </section>
 
-          {/* Instructions */}
-          <div style={c.sideCard}>
-            <h3 style={c.sideTitle}><CircleHelp size={15} /> Interview guide</h3>
-            <div style={c.instrList}>
-              {[
-                ["🎯", "Listen carefully to each question"],
-                ["🎙️", "Speak clearly and at a steady pace"],
-                ["⏱️", "Keep answers within 2–3 minutes"],
-                ["✅", "Click Submit & Next when ready"],
-                ["📋", "Total session is ~20 minutes"],
-              ].map(([icon, text]) => (
-                <div key={text} style={c.instrRow}>
-                  <span style={c.instrIcon}>{icon}</span>
-                  <span style={c.instrText}>{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Shortcuts */}
-          <div style={c.sideCard}>
-            <h3 style={c.sideTitle}><ShieldCheck size={15} /> Session controls</h3>
-            <div style={c.shortcutList}>
-              {[
-                ["M", "Mute / Unmute"],
-                ["V", "Camera On / Off"],
-                ["↵", "Submit Answer"],
-                ["Esc", "End Interview"],
-              ].map(([key, label]) => (
-                <div key={key} style={c.shortcutRow} className="ix-shortcut-row">
-                  <kbd style={c.kbd}>{key}</kbd>
-                  <span style={c.shortcutLabel}>{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900"><Wifi size={16} className="text-[#1f5e3b]" /> Session tips</div>
+            <ul className="mt-4 space-y-3 text-xs leading-5 text-slate-500">
+              <li className="flex gap-2"><span className="font-bold text-[#1f5e3b]">01</span> Keep your face centered and look toward the camera.</li>
+              <li className="flex gap-2"><span className="font-bold text-[#1f5e3b]">02</span> Speak clearly and pause briefly between thoughts.</li>
+              <li className="flex gap-2"><span className="font-bold text-[#1f5e3b]">03</span> Use the answer box if live transcription needs a moment.</li>
+            </ul>
+          </section>
         </aside>
       </main>
 
-      {/* ══ BOTTOM CONTROL BAR ══ */}
-      <footer style={c.bottomBar} className="interview-room-bottom">
-
-        {/* Left: Media toggles */}
-        <div style={c.ctrlGroup}>
-          <CtrlBtn
-            active={isMicOn}
-            onClick={toggleMicrophone}
-            activeIcon={<Mic size={18} />}
-            inactiveIcon={<MicOff size={18} />}
-            activeLabel="Mic On"
-            inactiveLabel="Muted"
-            title={isMicOn ? "Mute (M)" : "Unmute (M)"}
-          />
-          {hasVideo && (
-            <CtrlBtn
-              active={isCameraOn}
-              onClick={toggleCamera}
-              activeIcon={<Video size={18} />}
-              inactiveIcon={<VideoOff size={18} />}
-              activeLabel="Cam On"
-              inactiveLabel="Cam Off"
-              title={isCameraOn ? "Turn off camera (V)" : "Turn on camera (V)"}
-            />
-          )}
-        </div>
-
-        {/* Center: Submit */}
-        <div style={c.ctrlCenter} className="interview-room-bottom-center">
-          <button
-            className="ix-submit-btn"
-            style={{
-              ...c.submitBtn,
-              opacity: isSubmitting || (!isRecording && !answerText.trim()) ? 0.55 : 1,
-            }}
-            onClick={submitAnswer}
-            disabled={isSubmitting || (!isRecording && !answerText.trim())}
-            title="Submit your response (Enter)"
-          >
-            {isSubmitting ? (
-              <>
-                <span style={c.submitSpinner} className="ix-spin" />
-                Submitting…
-              </>
-            ) : (
-              <><Send size={16} /> {isRecording ? "Finish answer" : "Submit answer"}</>
-            )}
+      <footer className="interview-controls sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 px-7 py-4 shadow-[0_-8px_30px_rgba(15,23,42,.06)] backdrop-blur">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
+          <div className="interview-control-group flex items-center gap-2">
+            <button type="button" onClick={toggleMicrophone} disabled={!hasMicrophone} className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${isMicOn ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-red-50 text-red-700 hover:bg-red-100"} disabled:cursor-not-allowed disabled:opacity-50`}>
+              {isMicOn ? <Mic size={16} /> : <MicOff size={16} />}<span className="hidden sm:inline">{isMicOn ? "Mute" : "Unmute"}</span>
+            </button>
+            <button type="button" onClick={toggleCamera} disabled={!hasVideo} className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${isCameraOn ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-red-50 text-red-700 hover:bg-red-100"} disabled:cursor-not-allowed disabled:opacity-50`}>
+              {isCameraOn ? <Camera size={16} /> : <CameraOff size={16} />}<span className="hidden sm:inline">{isCameraOn ? "Camera" : "Camera off"}</span>
+            </button>
+          </div>
+          <button type="button" onClick={submitAnswer} disabled={isSubmitting || (!isRecording && !answerText.trim())} className="flex items-center justify-center gap-2 rounded-xl bg-[#1f5e3b] px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-[#1f5e3b]/20 transition hover:-translate-y-0.5 hover:bg-[#174a2e] disabled:cursor-not-allowed disabled:opacity-50">
+            {isSubmitting ? <LoaderCircle size={17} className="interview-spin" /> : <Send size={16} />}
+            {isSubmitting ? "Submitting..." : "Finish & next"}
           </button>
-        </div>
-
-        {/* Right: End */}
-        <div style={c.ctrlRight}>
-          <button
-            className="ix-end-btn"
-            style={{ ...c.endBtn, opacity: isSubmitting ? 0.5 : 1, marginRight: 8 }}
-            onClick={pauseInterview}
-            disabled={isSubmitting}
-            title="Pause interview"
-          >
-            <Pause size={15} /> Pause
-          </button>
-          <button
-            className="ix-end-btn"
-            style={{ ...c.endBtn, opacity: isSubmitting ? 0.5 : 1 }}
-            onClick={endInterview}
-            disabled={isSubmitting}
-            title="End interview (Esc)"
-          >
-            <Square size={14} /> End interview
-          </button>
+          <div className="interview-control-end flex items-center gap-2">
+            <button type="button" onClick={pauseInterview} disabled={isSubmitting} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"><Pause size={15} /><span className="hidden sm:inline">Pause</span></button>
+            <button type="button" onClick={endInterview} disabled={isSubmitting} className="flex items-center gap-2 rounded-xl border border-red-100 px-3.5 py-2.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"><Square size={13} /><span className="hidden sm:inline">End</span></button>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
-
-/* ─── Small reusable control button ──────────────────────── */
-function CtrlBtn({ active, onClick, activeIcon, inactiveIcon, activeLabel, inactiveLabel, title }) {
-  return (
-    <button
-      className="ix-ctrl-btn"
-      onClick={onClick}
-      title={title}
-      style={{
-        ...c.ctrlBtn,
-        background: active ? "#e8f0eb" : "#fff5f4",
-        border:     `1.5px solid ${active ? "#b9d1c0" : "#efb4ae"}`,
-        color:      active ? "#1f5e3b" : "#a12f26",
-      }}
-    >
-      <span style={{ display: "flex" }}>{active ? activeIcon : inactiveIcon}</span>
-      <span style={c.ctrlLabel}>{active ? activeLabel : inactiveLabel}</span>
-    </button>
-  );
-}
-
-/* ─── STYLES ──────────────────────────────────────────────── */
-const c = {
-  root: {
-    height: "100vh",
-    background: "#f8f8f6",
-    color: "#111111",
-    display: "flex",
-    flexDirection: "column",
-    fontFamily: "'DM Sans', sans-serif",
-    overflow: "hidden",
-    position: "relative",
-  },
-
-  /* loading */
-  loadWrap: {
-    flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-    background: "#f8f8f6",
-  },
-  loadInner: {
-    display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
-    textAlign: "center",
-  },
-  spinRing: {
-    width: 56, height: 56,
-    border: "3px solid #dfe9e2",
-    borderTop: "3px solid #1f5e3b",
-    borderRadius: "50%",
-    marginBottom: 8,
-  },
-  loadLogo: {
-    position: "absolute",
-    fontFamily: "'Syne', sans-serif",
-    fontWeight: 800, fontSize: 14, color: "#1f5e3b",
-    marginTop: -2,
-  },
-  loadTitle: { fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 700, color: "#111111" },
-  loadSub:   { fontSize: 13, color: "#5e5e5e", marginTop: -4 },
-  loadDots:  { display: "flex", flexDirection: "column", gap: 8, marginTop: 12, alignItems: "flex-start" },
-  loadStep:  { display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#5e5e5e" },
-  loadStepDot: { width: 6, height: 6, borderRadius: "50%", background: "#1f5e3b", display: "inline-block" },
-
-  /* top bar */
-  topBar: {
-    height: 64,
-    padding: "0 24px",
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    borderBottom: "1px solid #e5e5e5",
-    background: "rgba(255,255,255,0.96)",
-    backdropFilter: "blur(12px)",
-    flexShrink: 0,
-    gap: 16,
-  },
-  topLeft:   { display: "flex", alignItems: "center", gap: 14 },
-  brand: {
-    width: 36, height: 36, borderRadius: 10,
-    background: "#1f5e3b",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
-  },
-  brandText: { fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 13, color: "#fff" },
-  topInfo:   { display: "flex", flexDirection: "column", gap: 1 },
-  topName:   { fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 14, color: "#111111", lineHeight: 1.2 },
-  topRole:   { fontSize: 11, color: "#5e5e5e", letterSpacing: "0.3px" },
-  timerPill: {
-    background: "#f2f1ec",
-    border: "1px solid #e5e5e5",
-    borderRadius: 100,
-    padding: "6px 16px",
-    display: "flex", alignItems: "center", gap: 8,
-    transition: "border-color 0.3s, background 0.3s",
-  },
-  timerWarn: { borderColor: "#dc2626", background: "rgba(220,38,38,0.08)" },
-  timerDot:  { width: 8, height: 8, borderRadius: "50%", background: "#1f5e3b", display: "inline-block" },
-  timerText: { fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 500, color: "#111111", letterSpacing: "1px" },
-  statusChip: {
-    display: "flex", alignItems: "center", gap: 6,
-    background: "#e8f0eb",
-    border: "1px solid #b9d1c0",
-    borderRadius: 100,
-    padding: "5px 14px",
-    fontSize: 12, fontWeight: 600, color: "#1f5e3b",
-    letterSpacing: "0.2px",
-  },
-  statusDot: { width: 7, height: 7, borderRadius: "50%", background: "#3f9b62", display: "inline-block" },
-
-  /* main */
-  main: {
-    flex: 1,
-    display: "flex",
-    gap: 20,
-    padding: "22px 28px",
-    overflow: "hidden",
-    minHeight: 0,
-  },
-
-  /* left panel */
-  leftPanel: {
-    flex: "1 1 0",
-    display: "flex", flexDirection: "column", gap: 12,
-    minWidth: 0,
-  },
-  videoWrap: {
-    flex: 1,
-    background: "#17211a",
-    borderRadius: 18,
-    border: "1px solid #d9e3dc",
-    overflow: "hidden",
-    position: "relative",
-    minHeight: 0,
-  },
-  video: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-  videoTopLeft: { position: "absolute", top: 14, left: 14 },
-  videoTopRight: { position: "absolute", top: 14, right: 14 },
-  recBadge: {
-    background: "rgba(10,14,22,0.82)",
-    backdropFilter: "blur(6px)",
-    border: "1px solid rgba(248,113,113,0.3)",
-    borderRadius: 100, padding: "5px 12px",
-    display: "flex", alignItems: "center", gap: 6,
-    fontSize: 11, fontWeight: 700, color: "#f5c1bd", letterSpacing: "1.5px",
-  },
-  recDot: { width: 7, height: 7, borderRadius: "50%", background: "#e56b61", display: "inline-block" },
-  camOffBadge: {
-    background: "rgba(10,14,22,0.82)", backdropFilter: "blur(6px)",
-    border: "1px solid rgba(248,113,113,0.25)",
-    borderRadius: 100, padding: "5px 12px",
-    fontSize: 11, fontWeight: 600, color: "#f5c1bd",
-  },
-  camOffOverlay: {
-    position: "absolute", inset: 0,
-    background: "rgba(8,12,20,0.88)",
-    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
-  },
-  camOffIcon: { fontSize: 40, opacity: 0.5 },
-  camOffText: { fontSize: 13, color: "#d1ddd4" },
-  micOffStrip: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    background: "rgba(185,28,28,0.9)", backdropFilter: "blur(4px)",
-    padding: "8px 16px", fontSize: 12, fontWeight: 600, color: "#fff",
-    textAlign: "center",
-  },
-
-  /* question card */
-  questionCard: {
-    background: "#ffffff",
-    border: "1px solid #dfe9e2",
-    borderLeft: "4px solid #1f5e3b",
-    borderRadius: 14,
-    padding: "20px 22px",
-    flexShrink: 0,
-  },
-  questionMeta: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 },
-  questionTag: {
-    background: "#e8f0eb",
-    border: "1px solid #b9d1c0",
-    color: "#1f5e3b",
-    borderRadius: 100, padding: "3px 10px",
-    fontSize: 11, fontWeight: 700, letterSpacing: "0.5px",
-  },
-  questionType: { fontSize: 11, color: "#5e5e5e", fontWeight: 500 },
-  questionText: {
-    fontSize: 18, fontWeight: 700, color: "#111111",
-    lineHeight: 1.5, marginBottom: 16,
-  },
-  questionFooter: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
-  recStatus: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#1f5e3b" },
-  recStatusPaused: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#8a8a8a" },
-  recStatusDot: { width: 7, height: 7, borderRadius: "50%", display: "inline-block" },
-  questionHint: { fontSize: 11, color: "#777777" },
-  answerCard: {
-    background: "#ffffff",
-    border: "1px solid #e5e5e5",
-    borderRadius: 14,
-    padding: "16px 20px",
-    flexShrink: 0,
-  },
-  answerLabel: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    gap: 12,
-    color: "#111111",
-    fontSize: 12,
-    fontWeight: 700,
-    marginBottom: 9,
-  },
-  answerOptional: {
-    color: "#777777",
-    fontSize: 11,
-    fontWeight: 400,
-    textAlign: "right",
-  },
-  answerInput: {
-    width: "100%",
-    resize: "vertical",
-    minHeight: 92,
-    background: "#fbfbfa",
-    border: "1px solid #d8d8d4",
-    borderRadius: 10,
-    color: "#111111",
-    fontFamily: "inherit",
-    fontSize: 13,
-    lineHeight: 1.6,
-    outline: "none",
-    padding: "11px 12px",
-  },
-
-  /* error */
-  errorCard: {
-    background: "#fff5f4",
-    border: "1px solid #efb4ae",
-    borderRadius: 12, padding: "12px 16px",
-    display: "flex", alignItems: "center", gap: 10,
-    fontSize: 13, color: "#a12f26",
-    flexShrink: 0,
-  },
-  errorIcon: { fontSize: 16 },
-
-  /* right panel */
-  rightPanel: {
-    width: 330,
-    flexShrink: 0,
-    display: "flex", flexDirection: "column", gap: 12,
-    overflowY: "auto",
-  },
-  sideCard: {
-    background: "#ffffff",
-    border: "1px solid #e5e5e5",
-    borderRadius: 14,
-    padding: "16px 18px",
-    flexShrink: 0,
-  },
-  sideCardHeader: { display: "flex", alignItems: "center", gap: 12 },
-  candidateAvatar: {
-    width: 40, height: 40, borderRadius: 12,
-    background: "#1f5e3b",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: "#fff",
-    flexShrink: 0,
-  },
-  candidateName: { fontWeight: 700, fontSize: 13, color: "#111111" },
-  candidateRole: { fontSize: 11, color: "#5e5e5e", marginTop: 2 },
-  divider: { height: 1, background: "#e5e5e5", margin: "14px 0" },
-  statGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-  statItem: { display: "flex", flexDirection: "column", gap: 3 },
-  statLabel: { fontSize: 10, color: "#777777", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.6px" },
-  statValue: { fontSize: 13, fontWeight: 700, color: "#1f5e3b", fontFamily: "'DM Mono', monospace" },
-
-  sideTitle: {
-    fontFamily: "'Syne', sans-serif",
-    display: "flex", alignItems: "center", gap: 6,
-    fontSize: 11, fontWeight: 700, color: "#1f5e3b",
-    textTransform: "uppercase", letterSpacing: "0.8px",
-    marginBottom: 12,
-  },
-  instrList: { display: "flex", flexDirection: "column", gap: 9 },
-  instrRow:  { display: "flex", alignItems: "flex-start", gap: 10 },
-  instrIcon: { fontSize: 14, flexShrink: 0, lineHeight: 1.5 },
-  instrText: { fontSize: 12, color: "#5e5e5e", lineHeight: 1.5 },
-
-  shortcutList: { display: "flex", flexDirection: "column", gap: 8 },
-  shortcutRow:  { display: "flex", alignItems: "center", gap: 10 },
-  kbd: {
-    background: "#f2f1ec",
-    border: "1px solid #d8d8d4",
-    borderBottom: "2px solid #c9c9c4",
-    borderRadius: 6,
-    padding: "3px 8px",
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11, fontWeight: 500, color: "#5e5e5e",
-    minWidth: 28, textAlign: "center",
-    transition: "background 0.2s",
-  },
-  shortcutLabel: { fontSize: 12, color: "#5e5e5e" },
-
-  /* bottom bar */
-  bottomBar: {
-    height: 76,
-    padding: "0 24px",
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    borderTop: "1px solid #e5e5e5",
-    background: "rgba(255,255,255,0.98)",
-    backdropFilter: "blur(12px)",
-    flexShrink: 0,
-    gap: 16,
-  },
-  ctrlGroup: { display: "flex", gap: 10 },
-  ctrlBtn: {
-    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-    padding: "8px 14px",
-    borderRadius: 12,
-    cursor: "pointer",
-    transition: "all 0.18s",
-    flexShrink: 0,
-  },
-  ctrlLabel: { fontSize: 10, fontWeight: 600, letterSpacing: "0.3px" },
-  ctrlCenter: { flex: 1, display: "flex", justifyContent: "center" },
-  submitBtn: {
-    background: "#1f5e3b",
-    color: "#fff",
-    border: "none",
-    borderRadius: 12,
-    padding: "12px 32px",
-    fontSize: 14, fontWeight: 700,
-    cursor: "pointer",
-    display: "flex", alignItems: "center", gap: 8,
-    boxShadow: "0 4px 20px rgba(31,94,59,0.2)",
-    transition: "all 0.2s",
-    fontFamily: "inherit",
-    letterSpacing: "0.2px",
-  },
-  submitSpinner: {
-    width: 14, height: 14,
-    border: "2px solid rgba(255,255,255,0.3)",
-    borderTop: "2px solid #fff",
-    borderRadius: "50%",
-    display: "inline-block",
-  },
-  ctrlRight: { display: "flex", justifyContent: "flex-end" },
-  endBtn: {
-    background: "transparent",
-    border: "1.5px solid #b9d1c0",
-    color: "#1f5e3b",
-    borderRadius: 12,
-    padding: "11px 22px",
-    fontSize: 13, fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    transition: "all 0.2s",
-    letterSpacing: "0.2px",
-  },
-};
 
 export default InterviewRoom;

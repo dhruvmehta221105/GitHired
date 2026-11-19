@@ -45,9 +45,19 @@ const attachTranscriptionSocket = (server, options = {}) => {
   });
 
   wss.on("connection", (client, context) => {
-    const session = createSession({
-      uid: `githired-${context.interviewId}-${Date.now()}`
-    });
+    let session;
+    try {
+      session = createSession({
+        uid: `githired-${context.interviewId}-${Date.now()}`
+      });
+    } catch (error) {
+      sendJson(client, {
+        type: "error",
+        message: error.message || "Live transcription is not configured."
+      });
+      client.close(1011, "Transcription provider is not configured");
+      return;
+    }
     let closed = false;
 
     const cleanup = () => {

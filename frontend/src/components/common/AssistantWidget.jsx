@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useLocation } from "react-router-dom";
 import {
   Bot,
   CheckCircle2,
@@ -21,6 +23,8 @@ const INITIAL_MESSAGE = {
 };
 
 export default function AssistantWidget() {
+  const { pathname } = useLocation();
+  const isInterviewRoom = pathname.startsWith("/interview/");
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
@@ -158,8 +162,8 @@ export default function AssistantWidget() {
     }
   };
 
-  return (
-    <div className="fixed bottom-5 right-5 z-[60]">
+  return createPortal(
+    <div className={`pointer-events-auto fixed right-5 z-[100] ${isInterviewRoom ? "bottom-24" : "bottom-5"}`}>
       {open && (
         <section
           aria-label="Kiko assistant"
@@ -342,6 +346,7 @@ export default function AssistantWidget() {
           </span>
         </button>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
